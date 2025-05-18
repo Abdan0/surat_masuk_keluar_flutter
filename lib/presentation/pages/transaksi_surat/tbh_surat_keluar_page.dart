@@ -3,21 +3,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
-import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/detail_surat_masuk_page.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/detail_surat_keluar_page.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_apppbar2.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_button.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_date_field.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_file_field.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_textfield.dart';
 
-class TambahSuratMasuk extends StatefulWidget {
-  const TambahSuratMasuk({super.key});
+class TambahSuratKeluar extends StatefulWidget {
+  const TambahSuratKeluar({super.key});
 
   @override
-  State<TambahSuratMasuk> createState() => _TambahSuratMasukState();
+  State<TambahSuratKeluar> createState() => _TambahSuratKeluarState();
 }
 
-class _TambahSuratMasukState extends State<TambahSuratMasuk> {
+class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
   final _formKey = GlobalKey<FormState>();
   String? _selectedTipeDropdown;
   String? _selectedKategoriDropdown;
@@ -35,7 +35,7 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
   ];
 
   final TextEditingController nomorSuratController = TextEditingController();
-  final TextEditingController asalSuratController = TextEditingController();
+  final TextEditingController tujuanSuratController = TextEditingController();
   final TextEditingController nomorAgendaController = TextEditingController();
   final TextEditingController perihalSuratController = TextEditingController();
   final TextEditingController isiSuratController = TextEditingController();
@@ -68,7 +68,7 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
-                      'Tambah Surat Masuk',
+                      'Tambah Surat Keluar',
                       style: GoogleFonts.poppins(
                         fontSize: 18,
                         color: AppPallete.textColor,
@@ -153,7 +153,7 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const DetailSuratMasuk(),
+                                  builder: (context) => const DetailSuratKeluar(),
                                 ),
                               );
                             }
@@ -229,13 +229,13 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
           ),
         ),
 
-        // Field Asal Surat
+        // Field Tujuan Surat (diubah dari Asal Surat)
         _buildFormFieldVertical(
-          label: 'Asal Surat',
+          label: 'Tujuan Surat',
           isRequired: true,
           child: MyTextfield(
-            controller: asalSuratController,
-            hintText: 'Masukkan asal surat',
+            controller: tujuanSuratController,
+            hintText: 'Masukkan tujuan surat',
             obsecureText: false,
           ),
         ),
@@ -370,13 +370,13 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
           ),
         ),
 
-        // Field Asal Surat
+        // Field Tujuan Surat
         _buildFormField(
-          label: 'Asal Surat',
+          label: 'Tujuan Surat',
           isRequired: true,
           child: MyTextfield(
-            controller: asalSuratController,
-            hintText: 'Masukkan asal surat',
+            controller: tujuanSuratController,
+            hintText: 'Masukkan tujuan surat',
             obsecureText: false,
           ),
         ),

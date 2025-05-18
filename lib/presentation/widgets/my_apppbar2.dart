@@ -8,66 +8,77 @@ class MyAppBar2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Search Bar
-        // Container(
-        //   decoration: BoxDecoration(
-        //     color: Colors.grey[200],
-        //     borderRadius: BorderRadius.circular(12),
-        //   ),
-        //   child: TextField(
-        //     onChanged: (value) {
-        //       // Aksi pencarian bisa ditaruh di sini
-        //       print('Cari: $value');
-        //     },
-        //     decoration: const InputDecoration(
-        //       hintText: 'Cari sesuatu...',
-        //       prefixIcon: Icon(Icons.search),
-        //       border: InputBorder.none,
-        //       contentPadding:  EdgeInsets.symmetric(vertical: 15),
-        //     ),
-        //   ),
-        // ),
-
-        SizedBox(
-          height: 55,
-          width: MediaQuery.of(context).size.width * 0.65,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
-            margin: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: AppPallete.borderColor,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.search),
-                Text('Cari', style: GoogleFonts.poppins(fontSize: 12, color: AppPallete.textColor))
-              ],
-            ),
-          ),
-        ),
-
-        Row(
+    // Get screen dimensions for responsive sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate sizes based on available width
+        final searchBarWidth = constraints.maxWidth * (isSmallScreen ? 0.58 : 0.62);
+        final profileWidth = constraints.maxWidth * (isSmallScreen ? 0.38 : 0.34);
+        
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
+            // Search Bar
+            Flexible(
+              child: Container(
+                height: 55,
+                width: searchBarWidth,
+                padding: EdgeInsets.symmetric(
+                  vertical: isSmallScreen ? 12 : 18, 
+                  horizontal: isSmallScreen ? 8 : 12
+                ),
+                margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 6 : 10),
+                decoration: BoxDecoration(
                   color: AppPallete.borderColor,
-                  borderRadius: BorderRadius.circular(20)),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search, 
+                      size: isSmallScreen ? 18 : 24
+                    ),
+                    SizedBox(width: isSmallScreen ? 6 : 8),
+                    Expanded(
+                      child: Text(
+                        'Cari', 
+                        style: GoogleFonts.poppins(
+                          fontSize: isSmallScreen ? 11 : 12, 
+                          color: AppPallete.textColor
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Profile & Notification Section
+            Container(
+              width: profileWidth,
+              margin: EdgeInsets.only(right: isSmallScreen ? 4 : 8),
+              padding: EdgeInsets.symmetric(
+                vertical: isSmallScreen ? 8 : 10,
+                horizontal: isSmallScreen ? 8 : 10
+              ),
+              decoration: BoxDecoration(
+                color: AppPallete.borderColor,
+                borderRadius: BorderRadius.circular(20)
+              ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.notifications_active,
                     color: AppPallete.secondaryColor,
+                    size: isSmallScreen ? 18 : 24,
                   ),
-                  const SizedBox(
-                    width: 15,
-                  ),
+                  SizedBox(width: isSmallScreen ? 8 : 15),
                   GestureDetector(
                     onTap: () {
                       try {
@@ -83,7 +94,7 @@ class MyAppBar2 extends StatelessWidget {
                       }
                     },
                     child: CircleAvatar(
-                      radius: 20,
+                      radius: isSmallScreen ? 16 : 20,
                       backgroundColor: Colors.grey[300],
                       backgroundImage: const AssetImage('lib/assets/abdan.jpg'),
                       onBackgroundImageError: (exception, stackTrace) {
@@ -95,8 +106,8 @@ class MyAppBar2 extends StatelessWidget {
               ),
             )
           ],
-        )
-      ],
+        );
+      }
     );
   }
 }

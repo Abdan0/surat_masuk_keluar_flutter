@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_surat_card.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_apppbar2.dart';
-import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/tbh_surat_masuk_page.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/tbh_surat_keluar_page.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
 
-class TrSuratMasukPage extends StatefulWidget {
-  const TrSuratMasukPage({super.key});
+class TrSuratKeluarPage extends StatefulWidget {
+  const TrSuratKeluarPage({super.key});
 
   @override
-  State<TrSuratMasukPage> createState() => _TrSuratMasukPageState();
+  State<TrSuratKeluarPage> createState() => _TrSuratKeluarPageState();
 }
 
-class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
+class _TrSuratKeluarPageState extends State<TrSuratKeluarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -33,7 +33,7 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
-                  'Surat Masuk',
+                  'Surat Keluar',
                   style: GoogleFonts.poppins(
                       fontSize: 16,
                       color: AppPallete.textColor,
@@ -52,7 +52,7 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
                     width: 100,
                     child: ElevatedButton(
                         onPressed: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => const TambahSuratMasuk()));
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => const TambahSuratKeluar()));
                         },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: AppPallete.primaryColor,
@@ -75,31 +75,31 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
               
               // Card Surat
               const MySuratCard(
-                  nomorSurat: 'SRT-1',
+                  nomorSurat: 'SRT-K1',
                   tanggalSurat: '5/14/2025',
-                  pengirimSurat: 'Abdan',
-                  nomorAgenda: 'AG-1',
-                  klasifikasiSurat: 'Internal',
-                  ringkasanSurat: 'Hai',
-                  keteranganSurat: 'ini Surat'),
+                  pengirimSurat: 'Bagian Umum',
+                  nomorAgenda: 'AGK-1',
+                  klasifikasiSurat: 'Eksternal',
+                  ringkasanSurat: 'Surat Undangan',
+                  keteranganSurat: 'Surat Undangan Rapat'),
 
-                  const MySuratCard(
-                  nomorSurat: 'SRT-1',
-                  tanggalSurat: '5/14/2025',
-                  pengirimSurat: 'Abdan',
-                  nomorAgenda: 'AG-1',
-                  klasifikasiSurat: 'Internal',
-                  ringkasanSurat: 'Hai',
-                  keteranganSurat: 'ini Surat'),
+              const MySuratCard(
+                  nomorSurat: 'SRT-K2',
+                  tanggalSurat: '5/15/2025',
+                  pengirimSurat: 'Bagian Keuangan',
+                  nomorAgenda: 'AGK-2',
+                  klasifikasiSurat: 'Eksternal',
+                  ringkasanSurat: 'Surat Pemberitahuan',
+                  keteranganSurat: 'Surat Pemberitahuan Kegiatan'),
 
-                  const MySuratCard(
-                  nomorSurat: 'SRT-1',
-                  tanggalSurat: '5/14/2025',
-                  pengirimSurat: 'Abdan',
-                  nomorAgenda: 'AG-1',
+              const MySuratCard(
+                  nomorSurat: 'SRT-K3',
+                  tanggalSurat: '5/16/2025',
+                  pengirimSurat: 'Bagian SDM',
+                  nomorAgenda: 'AGK-3',
                   klasifikasiSurat: 'Internal',
-                  ringkasanSurat: 'Hai',
-                  keteranganSurat: 'ini Surat'),
+                  ringkasanSurat: 'Memo Internal',
+                  keteranganSurat: 'Memo Rapat Koordinasi'),
             ],
           ),
         ),

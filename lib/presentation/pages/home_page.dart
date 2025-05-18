@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/buku_agenda/ba_surat_keluar_page.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/buku_agenda/ba_surat_masuk_page.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/galeri_surat/galeri_surat_keluar.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/galeri_surat/galeri_surat_masu.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/pages/surat_masuk_page.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/tr_surat_keluar_page.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/tr_surat_masuk_page.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_appbar.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_menu.dart';
@@ -67,230 +72,131 @@ class _HomePageState extends State<HomePage> {
                     ExpandingDotsEffect(activeDotColor: Colors.grey.shade700),
               ),
 
+
+              const SizedBox(height: 16,),
+
               // Menu
               Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      //Transaksi Surat Section
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Transaksi Surat', // teks di luar border
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: AppPallete.textColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(
-                                height: 8), // jarak antara teks dan border
-                            IntrinsicWidth(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppPallete.borderColor,
-                                    width: 2,
+                  // Wrap in LayoutBuilder for responsive sizing
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Calculate dynamic sizes based on available width
+                      final availableWidth = constraints.maxWidth;
+                      final sectionWidth = availableWidth * 0.48; // Give each section ~48% of width
+                      
+                      return Column(
+                        children: [
+                          // First row with Transaksi Surat and Buku Agenda
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              //Transaksi Surat Section
+                              _buildMenuSection(
+                                context,
+                                'Transaksi Surat',
+                                sectionWidth,
+                                [
+                                  MenuItemData(
+                                    icon: Icons.mark_email_unread,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const TrSuratMasukPage(),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 5, vertical: 5),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    IntrinsicHeight(
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          MyMenu(
-                                            icon: Icons.mark_email_unread,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      const TrSuratMasukPage(),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                          MyMenu(
-                                            icon: Icons.mark_email_read,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      const SuratMasukPage(),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  
-                      //Buku Agenda Section
-                      Padding(
-                        padding: const EdgeInsets.all(18.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Buku Agenda', // teks di luar border
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: AppPallete.textColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(
-                                height: 8), // jarak antara teks dan border
-                            IntrinsicWidth(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppPallete.borderColor,
-                                    width: 2,
+                                  MenuItemData(
+                                    icon: Icons.mark_email_read,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const TrSuratKeluarPage(),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 5, vertical: 5),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    IntrinsicHeight(
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          MyMenu(
-                                            icon: Icons.mark_email_unread,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      const SuratMasukPage(),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                          MyMenu(
-                                            icon: Icons.mark_email_read,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      const SuratMasukPage(),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  ],
-                                ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      //Galeri Section
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Galeri Surat',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: AppPallete.textColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(
-                                height: 8),
-                            IntrinsicWidth(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppPallete.borderColor,
-                                    width: 2,
+                              
+                              //Buku Agenda Section
+                              _buildMenuSection(
+                                context,
+                                'Buku Agenda',
+                                sectionWidth,
+                                [
+                                  MenuItemData(
+                                    icon: Icons.mark_email_unread,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const AgendaSuratMasuk(),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 5, vertical: 5),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    IntrinsicHeight(
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          MyMenu(
-                                            icon: Icons.mark_email_unread,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      const SuratMasukPage(),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                          MyMenu(
-                                            icon: Icons.mark_email_read,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      const SuratMasukPage(),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  ],
-                                ),
+                                  MenuItemData(
+                                    icon: Icons.mark_email_read,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const AgendaSuratKeluar(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Second row with Galeri Surat (centered)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              //Galeri Section
+                              _buildMenuSection(
+                                context,
+                                'Galeri Surat',
+                                sectionWidth,
+                                [
+                                  MenuItemData(
+                                    icon: Icons.mark_email_unread,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const GaleriSuratMasuk(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  MenuItemData(
+                                    icon: Icons.mark_email_read,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const GaleriSuratKeluar(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               )
@@ -300,4 +206,58 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+    // Helper method to create consistent menu sections
+  Widget _buildMenuSection(
+    BuildContext context,
+    String title,
+    double width,
+    List<MenuItemData> menuItems,
+  ) {
+    return SizedBox(
+      width: width,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title, // section title
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: AppPallete.textColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity, // Take full width of parent
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: AppPallete.borderColor,
+                width: 2,
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: menuItems.map((item) => 
+                Flexible(
+                  child: MyMenu(
+                    icon: item.icon,
+                    onTap: item.onTap,
+                  ),
+                )
+              ).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+class MenuItemData {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  MenuItemData({required this.icon, required this.onTap});
 }
