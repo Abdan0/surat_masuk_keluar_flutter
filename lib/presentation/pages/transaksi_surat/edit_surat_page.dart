@@ -4,56 +4,69 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
-import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/detail_surat_keluar_page.dart';
+import 'package:surat_masuk_keluar_flutter/data/models/surat.dart';
+import 'package:surat_masuk_keluar_flutter/data/services/surat_service.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_apppbar2.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_button.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_date_field.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_file_field.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_textfield.dart';
-import 'package:surat_masuk_keluar_flutter/data/models/surat.dart';
-import 'package:surat_masuk_keluar_flutter/data/services/surat_service.dart';
-import 'package:surat_masuk_keluar_flutter/data/services/user_service.dart';
 
-class TambahSuratKeluar extends StatefulWidget {
-  const TambahSuratKeluar({super.key});
+class EditSuratPage extends StatefulWidget {
+  final Surat surat;
+  
+  const EditSuratPage({super.key, required this.surat});
 
   @override
-  State<TambahSuratKeluar> createState() => _TambahSuratKeluarState();
+  State<EditSuratPage> createState() => _EditSuratPageState();
 }
 
-class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
+class _EditSuratPageState extends State<EditSuratPage> {
   final _formKey = GlobalKey<FormState>();
-  String? _selectedKategoriDropdown = '--Kategori Surat--';
-
+  late String? _selectedKategoriDropdown;
+  
   final List<String> _kategoriSuratList = [
     '--Kategori Surat--',
     'internal',
     'eksternal',
   ];
 
-  final TextEditingController nomorSuratController = TextEditingController();
-  final TextEditingController tujuanSuratController = TextEditingController();
-  final TextEditingController nomorAgendaController = TextEditingController();
-  final TextEditingController perihalSuratController = TextEditingController();
-  final TextEditingController isiSuratController = TextEditingController();
-  final TextEditingController tanggalController = TextEditingController();
-  final TextEditingController lampiranController = TextEditingController();
+  late TextEditingController nomorSuratController;
+  late TextEditingController asalSuratController;
+  late TextEditingController tujuanSuratController;
+  late TextEditingController perihalSuratController;
+  late TextEditingController isiSuratController;
+  late TextEditingController tanggalController;
+  late TextEditingController lampiranController;
 
   bool _isLoading = false;
   PlatformFile? _selectedFile;
-
+  
   @override
   void initState() {
     super.initState();
-    // Check API URLs
-    SuratService.checkApiUrls();
+    
+    // Initialize controllers with existing surat data
+    nomorSuratController = TextEditingController(text: widget.surat.nomorSurat);
+    asalSuratController = TextEditingController(text: widget.surat.asalSurat);
+    tujuanSuratController = TextEditingController(text: widget.surat.tujuanSurat ?? '');
+    perihalSuratController = TextEditingController(text: widget.surat.perihal);
+    isiSuratController = TextEditingController(text: widget.surat.isi);
+    tanggalController = TextEditingController(text: widget.surat.tanggalSurat.toString().split(' ')[0]);
+    lampiranController = TextEditingController(text: widget.surat.file != null ? 'File terlampir' : '');
+    
+    // Initialize dropdown
+    _selectedKategoriDropdown = widget.surat.kategori;
+    if (!_kategoriSuratList.contains(_selectedKategoriDropdown)) {
+      _selectedKategoriDropdown = _kategoriSuratList[0];
+    }
   }
 
   @override
   void dispose() {
     nomorSuratController.dispose();
+    asalSuratController.dispose();
     tujuanSuratController.dispose();
-    nomorAgendaController.dispose();
     perihalSuratController.dispose();
     isiSuratController.dispose();
     tanggalController.dispose();
@@ -61,7 +74,7 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
     super.dispose();
   }
 
-  Future<void> _saveSurat() async {
+  Future<void> _updateSurat() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -71,98 +84,85 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
     });
 
     try {
-      final userId = await getUserId() ?? 0;
-      
-      // Buat objek surat
-      final surat = Surat(
+      // Create updated surat object
+      final updatedSurat = Surat(
+        id: widget.surat.id,
         nomorSurat: nomorSuratController.text,
-        tipe: 'keluar', // Tipe surat keluar
-        kategori: _selectedKategoriDropdown == '--Kategori Surat--' ? 'internal' : _selectedKategoriDropdown!,
-        asalSurat: 'Fakultas Ilmu Komputer', // Default untuk surat keluar
-        tujuanSurat: tujuanSuratController.text, // Field tujuan surat untuk surat keluar
+        tipe: widget.surat.tipe,
+        kategori: _selectedKategoriDropdown == '--Kategori Surat--' 
+            ? 'internal' 
+            : _selectedKategoriDropdown!,
+        asalSurat: asalSuratController.text,
+        tujuanSurat: widget.surat.tipe == 'keluar' ? tujuanSuratController.text : null,
         tanggalSurat: DateTime.parse(tanggalController.text),
         perihal: perihalSuratController.text,
         isi: isiSuratController.text,
-        status: 'draft',
-        userId: userId,
+        file: widget.surat.file,
+        status: widget.surat.status,
+        userId: widget.surat.userId,
       );
 
-      // Simpan surat ke API menggunakan two-step approach untuk menghindari masalah format
-      final createdSurat = await SuratService.createSuratWithErrorHandling(
-        surat, 
+      // Update surat with fallback strategy
+      final result = await SuratService.updateSuratWithFallback(
+        widget.surat.id!,
+        updatedSurat,
         pdfFile: _selectedFile != null ? File(_selectedFile!.path!) : null,
-        createAgenda: true // Aktifkan pembuatan agenda otomatis
       );
-
+      
       setState(() {
         _isLoading = false;
       });
-
+      
       if (!mounted) return;
-
-      // Cek jika ada error pembuatan agenda
-      if (createdSurat.agendaCreationError != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Surat berhasil disimpan, tetapi gagal membuat agenda: ${createdSurat.agendaCreationError}'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      } else {
-        // Tampilkan notifikasi berhasil
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Surat keluar dan agenda berhasil disimpan'),
-            backgroundColor: AppPallete.successColor,
-          ),
-        );
-      }
-
-      // Navigasi ke halaman detail
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DetailSuratKeluar(surat: createdSurat),
+      
+      // Show success notification
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Surat berhasil diperbarui'),
+          backgroundColor: AppPallete.successColor,
         ),
       );
+
+      // Return to previous page with updated data
+      Navigator.pop(context, result);
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
 
-      // Periksa dulu jika error HTML tapi surat sebetulnya tersimpan
-      if (e.toString().contains('HTML') && e.toString().contains('berhasil disimpan')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Data surat berhasil disimpan, tetapi ada masalah format respons.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        Navigator.pop(context, true); // Kembali ke halaman sebelumnya
-        return; // Keluar dari metode
-      }
-
-      // Format pesan error untuk lebih user-friendly
-      String errorMessage = 'Gagal menyimpan surat';
-      
-      if (e.toString().contains('HTML') || e.toString().contains('format')) {
-        errorMessage = 'Server mengembalikan format data yang tidak valid. Coba lagi atau hubungi administrator.';
-      } else if (e.toString().contains('connection')) {
-        errorMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda.';
-      } else {
-        // Ambil bagian pesan error yang penting saja
-        final match = RegExp(r'Exception: (Gagal.*?)(?:Exception:|$)').firstMatch(e.toString());
-        if (match != null) {
-          errorMessage = match.group(1) ?? errorMessage;
-        }
-      }
-
-      // Tampilkan notifikasi error
+      // Show error notification
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(errorMessage),
+          content: Text('Gagal memperbarui surat: ${e.toString()}'),
           backgroundColor: AppPallete.errorColor,
+        ),
+      );
+      
+      // Tambahan: Tambahkan logging untuk membantu debug
+      print('Error detail: $e');
+      
+      // Menampilkan dialog dengan detail error
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Detail Error'),
+          content: SingleChildScrollView(
+            child: Text(e.toString()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+            TextButton(
+              onPressed: () {
+                // Mencoba gunakan fallback jika API bermasalah
+                Navigator.pop(context);
+                Navigator.pop(context, widget.surat); // Kembalikan surat asli
+              },
+              child: const Text('Kembali ke Detail'),
+            ),
+          ],
         ),
       );
     }
@@ -194,7 +194,7 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
-                      'Tambah Surat Keluar',
+                      'Edit ${widget.surat.tipe == 'masuk' ? 'Surat Masuk' : 'Surat Keluar'}',
                       style: GoogleFonts.poppins(
                         fontSize: 18,
                         color: AppPallete.textColor,
@@ -230,11 +230,11 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
 
                           const SizedBox(height: 16),
 
-                          // Form fields - adapting based on screen size
+                          // Form fields
                           if (isSmallScreen)
                             _buildFormFieldsColumn()
                           else
-                            _buildFormFieldsRow(),
+                            _buildFormFieldsColumn(), // Use the same layout for now
                         ],
                       ),
                     ),
@@ -276,7 +276,7 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
                             ? const CircularProgressIndicator()
                             : MyButton(
                                 text: 'Simpan',
-                                onTap: _saveSurat,
+                                onTap: _updateSurat,
                                 width: 120,
                                 height: 50,
                               ),
@@ -294,8 +294,10 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
     );
   }
 
-  // Build column layout for small screens
+  // Build column layout for form fields
   Widget _buildFormFieldsColumn() {
+    final bool isSuratMasuk = widget.surat.tipe == 'masuk';
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -335,22 +337,39 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
           ),
         ),
 
-        // Field Tujuan Surat (khusus untuk surat keluar)
-        _buildFormFieldVertical(
-          label: 'Tujuan Surat',
-          isRequired: true,
-          child: MyTextfield(
-            controller: tujuanSuratController,
-            hintText: 'Masukkan tujuan surat',
-            obsecureText: false,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Tujuan surat wajib diisi';
-              }
-              return null;
-            },
+        // Field Asal Surat or Tujuan Surat based on tipe
+        if (isSuratMasuk)
+          _buildFormFieldVertical(
+            label: 'Asal Surat',
+            isRequired: true,
+            child: MyTextfield(
+              controller: asalSuratController,
+              hintText: 'Masukkan asal surat',
+              obsecureText: false,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Asal surat wajib diisi';
+                }
+                return null;
+              },
+            ),
+          )
+        else
+          _buildFormFieldVertical(
+            label: 'Tujuan Surat',
+            isRequired: true,
+            child: MyTextfield(
+              controller: tujuanSuratController,
+              hintText: 'Masukkan tujuan surat',
+              obsecureText: false,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Tujuan surat wajib diisi';
+                }
+                return null;
+              },
+            ),
           ),
-        ),
 
         const SizedBox(height: 16),
         const Divider(),
@@ -367,16 +386,6 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
         ),
 
         const SizedBox(height: 16),
-
-        // Field Nomor Agenda
-        _buildFormFieldVertical(
-          label: 'Nomor Agenda',
-          child: MyTextfield(
-            controller: nomorAgendaController,
-            hintText: 'Masukkan nomor agenda',
-            obsecureText: false,
-          ),
-        ),
 
         // Field Tanggal Surat
         _buildFormFieldVertical(
@@ -429,11 +438,12 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
           label: 'Lampiran',
           child: MyFileField(
             label: '',
-            hintText: 'Pilih file lampiran',
+            hintText: widget.surat.file != null ? 'Ganti file lampiran' : 'Pilih file lampiran',
             controller: lampiranController,
             onFilePicked: (file) {
               setState(() {
                 _selectedFile = file;
+                lampiranController.text = file.name;
               });
               print('File Dipilih: ${file.name}');
             },
@@ -443,19 +453,7 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
     );
   }
 
-  // Build horizontal layout untuk screens yang lebih lebar
-  Widget _buildFormFieldsRow() {
-    // Implementasi untuk layout horizontal
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Sama seperti columnar layout di atas
-        // ...
-      ],
-    );
-  }
-
-  // Helper methods...
+  // Helper method for form fields
   Widget _buildFormFieldVertical({
     required String label,
     required Widget child,

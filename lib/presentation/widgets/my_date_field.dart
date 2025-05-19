@@ -1,87 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
 
-class MyDateField extends StatefulWidget {
+class MyDateField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final String hintText;
-  final double width;
-  final double height;
+  final String? Function(String?)? validator; // Menambahkan validator
 
-  const MyDateField(
-      {super.key,
-      required this.label,
-      required this.controller,
-      required this.hintText,
-      this.height = 60, // Increased from 40 to 60
-      this.width = double.infinity});
-
-  @override
-  State<MyDateField> createState() => _MyDateFieldState();
-}
-
-class _MyDateFieldState extends State<MyDateField> {
-  Future<void> _selectDate() async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-    );
-
-    if (pickedDate != null) {
-      String formattedDate = DateFormat('dd MMMM yyyy').format(pickedDate);
-      widget.controller.text = formattedDate;
-    }
-  }
+  const MyDateField({
+    super.key,
+    required this.label,
+    required this.controller,
+    required this.hintText,
+    this.validator, // Menambahkan parameter validator
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Add label above the field
-        Padding(
-          padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
-          child: Text(
-            widget.label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppPallete.textColor,
-            ),
-          ),
+    return TextFormField( // Menggunakan TextFormField
+      controller: controller,
+      readOnly: true,
+      decoration: InputDecoration(
+        hintText: hintText,
+        suffixIcon: const Icon(Icons.calendar_today),
+        enabledBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.grey),
+          borderRadius: BorderRadius.circular(12),
         ),
-        SizedBox(
-          width: widget.width,
-          height: widget.height,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 0.0),
-            child: GestureDetector(
-              onTap: _selectDate,
-              child: AbsorbPointer(
-                child: TextField(
-                  controller: widget.controller,
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15.0),
-                      borderSide: const BorderSide(color: AppPallete.borderColor),
-                    ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderSide: BorderSide(color: AppPallete.secondaryColor),
-                    ),
-                    hintText: widget.hintText,
-                    hintStyle: const TextStyle(color: AppPallete.textColor, fontSize: 12),
-                    suffixIcon: const Icon(Icons.calendar_today),
-                  ),
-                ),
-              ),
-            ),
-          ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Theme.of(context).primaryColor),
+          borderRadius: BorderRadius.circular(12),
         ),
-      ],
+        errorBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.error),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.error),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+      ),
+      onTap: () async {
+        final DateTime? pickedDate = await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2101),
+        );
+
+        if (pickedDate != null) {
+          final String formattedDate = DateFormat('yyyy-MM-dd').format(pickedDate);
+          controller.text = formattedDate;
+        }
+      },
+      validator: validator, // Menggunakan validator
     );
   }
 }

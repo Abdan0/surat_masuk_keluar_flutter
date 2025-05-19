@@ -6,6 +6,8 @@ class MyDetailSurat extends StatelessWidget {
   final String nomorSurat;
   final String tanggalSurat;
   final String pengirimSurat;
+  // Tambahkan parameter tujuanSurat
+  final String tujuanSurat;
   final String nomorAgenda;
   final String klasifikasiSurat;
   final String ringkasanSurat;
@@ -15,21 +17,29 @@ class MyDetailSurat extends StatelessWidget {
   final String updateOnController;
   final VoidCallback? onDisposisiTap;
   final VoidCallback? onPdfTap;
+  // Tambahkan parameter untuk edit dan delete
+  final VoidCallback? onEditTap;
+  final VoidCallback? onDeleteTap;
 
-  const MyDetailSurat(
-      {super.key,
-      required this.nomorSurat,
-      required this.tanggalSurat,
-      required this.pengirimSurat,
-      required this.nomorAgenda,
-      required this.klasifikasiSurat,
-      required this.ringkasanSurat,
-      required this.keteranganSurat,
-      required this.createByController,
-      required this.createOnController,
-      required this.updateOnController,
-      this.onDisposisiTap,
-      this.onPdfTap});
+  const MyDetailSurat({
+    super.key,
+    required this.nomorSurat,
+    required this.tanggalSurat,
+    required this.pengirimSurat,
+    // Tambahkan parameter wajib untuk tujuanSurat
+    required this.tujuanSurat,
+    required this.nomorAgenda,
+    required this.klasifikasiSurat,
+    required this.ringkasanSurat,
+    required this.keteranganSurat,
+    required this.createByController,
+    required this.createOnController,
+    required this.updateOnController,
+    this.onDisposisiTap,
+    this.onPdfTap,
+    this.onEditTap,
+    this.onDeleteTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +49,8 @@ class MyDetailSurat extends StatelessWidget {
       'Nomor Agenda': nomorAgenda,
       'Klasifikasi Surat': klasifikasiSurat,
       'Pengirim Surat': pengirimSurat,
+      // Tambahkan tujuan surat ke detail items
+      'Tujuan Surat': tujuanSurat,
       'Dibuat Oleh': createByController,
       'Dibuat Pada': createOnController,
       'Diperbarui Pada': updateOnController,
@@ -98,6 +110,24 @@ class MyDetailSurat extends StatelessWidget {
                                   fontSize: 12.0,
                                 ),
                               ),
+                              // Tambahkan tujuan surat jika bukan '-'
+                              if (tujuanSurat != '-') ...[
+                                Text(
+                                  tujuanSurat,
+                                  style: const TextStyle(
+                                    color: AppPallete.textColor,
+                                    fontSize: 12.0,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const Text(
+                                  '|',
+                                  style: TextStyle(
+                                    color: AppPallete.textColor,
+                                    fontSize: 12.0,
+                                  ),
+                                ),
+                              ],
                               Text(
                                 nomorAgenda,
                                 style: const TextStyle(
@@ -188,12 +218,14 @@ class MyDetailSurat extends StatelessWidget {
                       ),
                     ),
 
-                    // Menu options
+                    // Menu options - Perbaikan struktur
                     IconButton(
                       icon: const Icon(Icons.more_vert, size: 20),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () {
+                        print('Menu button clicked'); // Debug log
+                        
                         // Show options menu
                         showModalBottomSheet(
                           context: context,
@@ -202,20 +234,63 @@ class MyDetailSurat extends StatelessWidget {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                // Edit option
                                 ListTile(
                                   leading: const Icon(Icons.edit),
                                   title: const Text('Edit'),
                                   onTap: () {
-                                    Navigator.pop(context);
-                                    // Add edit action
+                                    print('Edit option selected'); // Debug log
+                                    Navigator.pop(context); // Close bottom sheet first
+                                    
+                                    if (onEditTap != null) {
+                                      Future.delayed(const Duration(milliseconds: 300), () {
+                                        onEditTap!();
+                                      });
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Fungsi edit belum diimplementasikan')),
+                                      );
+                                    }
                                   },
                                 ),
+                                
+                                // Delete option
                                 ListTile(
-                                  leading: const Icon(Icons.delete),
-                                  title: const Text('Hapus'),
+                                  leading: const Icon(Icons.delete, color: Colors.red),
+                                  title: const Text('Hapus', style: TextStyle(color: Colors.red)),
                                   onTap: () {
-                                    Navigator.pop(context);
-                                    // Add delete action
+                                    print('Delete option selected'); // Debug log
+                                    Navigator.pop(context); // Close bottom sheet first
+                                    
+                                    if (onDeleteTap != null) {
+                                      Future.delayed(const Duration(milliseconds: 300), () {
+                                        onDeleteTap!();
+                                      });
+                                    } else {
+                                      // Default confirmation
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Konfirmasi Hapus'),
+                                          content: const Text('Apakah Anda yakin ingin menghapus surat ini?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              child: const Text('Batal'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(context);
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Fungsi hapus belum diimplementasikan')),
+                                                );
+                                              },
+                                              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
                                   },
                                 ),
                               ],
@@ -356,45 +431,45 @@ class MyDetailSurat extends StatelessWidget {
                 ),
                 
                 // Button bar untuk navigasi tambahan
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () {
-                          // Implementasi cetak dokumen
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Mencetak dokumen')),
-                          );
-                        },
-                        icon: const Icon(Icons.print, size: 18),
-                        label: const Text('Cetak', style: TextStyle(fontSize: 12)),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        // Implementasi cetak dokumen
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Mencetak dokumen')),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.print, size: 18),
+                                      label: const Text('Cetak', style: TextStyle(fontSize: 12)),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        // Implementasi share dokumen
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Berbagi dokumen')),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.share, size: 18),
+                                      label: const Text('Bagikan', style: TextStyle(fontSize: 12)),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            ],
+                          ),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: () {
-                          // Implementasi share dokumen
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Berbagi dokumen')),
-                          );
-                        },
-                        icon: const Icon(Icons.share, size: 18),
-                        label: const Text('Bagikan', style: TextStyle(fontSize: 12)),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+                    ),
+                  );
+                }
+              }

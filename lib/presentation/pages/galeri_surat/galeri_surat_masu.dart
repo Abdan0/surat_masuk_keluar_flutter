@@ -196,7 +196,7 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
           children: [
             // File Type Header
             Container(
-              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               decoration: BoxDecoration(
                 color: cardColor,
                 borderRadius: const BorderRadius.only(
@@ -207,19 +207,18 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  const SizedBox(width: 12),
-                  Icon(fileIcon, size: 32, color: Colors.black54),
+                  Icon(fileIcon, size: 24, color: Colors.black54),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min, // To avoid vertical overflow
                       children: [
                         Text(
                           file.fileType,
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 14,
                           ),
                         ),
                         Text(
@@ -240,40 +239,46 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
             // File Info
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.all(8.0), // Reduced padding
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      file.title,
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                    // Title with proper overflow handling
+                    Expanded(
+                      child: Text(
+                        file.title,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13, // Smaller font size
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(),
+                    
+                    // Bottom action row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // View Button
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            // Open view action
-                          },
-                          icon: const Icon(Icons.visibility, size: 16),
-                          label: const Text('Lihat'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppPallete.primaryColor,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 0,
+                        // View Button - more compact
+                        Expanded(
+                          child: TextButton.icon(
+                            onPressed: () {
+                              // Open view action
+                            },
+                            icon: const Icon(Icons.visibility, size: 14),
+                            label: const Text(
+                              'Lihat',
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            minimumSize: const Size(60, 30),
-                            textStyle: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppPallete.primaryColor,
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(20, 30),
+                              textStyle: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ),
@@ -284,8 +289,8 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
                             // Show options menu
                             _showFileOptions(context, file);
                           },
-                          icon: const Icon(Icons.more_vert),
-                          splashRadius: 20,
+                          icon: const Icon(Icons.more_vert, size: 18),
+                          splashRadius: 18,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
