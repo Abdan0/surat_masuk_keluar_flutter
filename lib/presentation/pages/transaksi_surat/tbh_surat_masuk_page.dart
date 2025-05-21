@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -61,6 +62,7 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
     super.dispose();
   }
 
+  // Modifikasi fungsi _saveSurat()
   Future<void> _saveSurat() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -71,23 +73,85 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
     });
 
     try {
-      final userId = await getUserId() ?? 0;
+      // Mendapatkan user ID dengan mencoba beberapa pendekatan
+      int userId;
+      try {
+        userId = await getUserId();
+        print('👤 Menggunakan user ID: $userId');
+      } catch (e) {
+        print('❌ Error mendapatkan user ID: $e');
+        
+        // Mencoba refresh token terlebih dahulu
+        final tokenRefreshed = await refreshToken();
+        if (tokenRefreshed) {
+          try {
+            userId = await getUserId();
+            print('👤 Menggunakan user ID setelah refresh token: $userId');
+          } catch (refreshError) {
+            // Tampilkan error dan minta user login ulang
+            setState(() {
+              _isLoading = false;
+            });
+            
+            if (!mounted) return;
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Session telah berakhir, silakan login kembali'),
+                backgroundColor: Colors.red,
+                action: SnackBarAction(
+                  label: 'Login',
+                  onPressed: () {
+                    // Navigate to login page
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  },
+                ),
+              ),
+            );
+            return;
+          }
+        } else {
+          // Jika refresh gagal, gunakan fixed default (hanya untuk debugging)
+          if (kDebugMode) {
+            userId = 1; // Default untuk debugging
+            print('⚠️ WARNING: Menggunakan default user ID = $userId (hanya untuk debugging)');
+          } else {
+            // Di production, tampilkan error
+            setState(() {
+              _isLoading = false;
+            });
+            
+            if (!mounted) return;
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Gagal mendapatkan data user. Silakan login kembali.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+        }
+      }
       
-      // Buat objek surat
+      // Buat objek surat dengan user ID yang valid
       final surat = Surat(
         nomorSurat: nomorSuratController.text,
-        tipe: 'masuk', // Tipe surat masuk
+        tipe: 'masuk',
         kategori: _selectedKategoriDropdown == '--Kategori Surat--' ? 'internal' : _selectedKategoriDropdown!,
         asalSurat: asalSuratController.text,
-        tujuanSurat: null, // Tidak perlu untuk surat masuk
+        tujuanSurat: null,
         tanggalSurat: DateTime.parse(tanggalController.text),
         perihal: perihalSuratController.text,
         isi: isiSuratController.text,
         status: 'draft',
-        userId: userId,
+        userId: userId, // User ID yang valid
       );
 
-      // Simpan surat ke API dengan error handling yang lebih baik
+      // Logging
+      print('📝 Mengirim surat masuk dengan user ID: $userId');
+
+      // Simpan surat ke API
       final createdSurat = await SuratService.createSuratWithErrorHandling(
         surat, 
         pdfFile: _selectedFile != null ? File(_selectedFile!.path!) : null,
@@ -132,6 +196,25 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
       });
 
       String errorMessage = 'Gagal menyimpan surat';
+      
+      // More specific error handling for user ID issues
+      if (e.toString().contains('user id is invalid')) {
+        errorMessage = 'ID pengguna tidak valid. Silakan login kembali.';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppPallete.errorColor,
+            action: SnackBarAction(
+              label: 'Login',
+              onPressed: () {
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              },
+            ),
+          ),
+        );
+        return;
+      }
       
       // Periksa dulu jika error HTML tapi surat sebetulnya tersimpan
       if (e.toString().contains('HTML') && e.toString().contains('berhasil disimpan')) {
@@ -239,6 +322,19 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
                             _buildFormFieldsColumn()
                           else
                             _buildFormFieldsRow(),
+
+                          // Tambahkan di bagian paling bawah CardForm, sebelum tombol action
+                          // if (kDebugMode) ...[
+                          //   const Divider(),
+                          //   const SizedBox(height: 16),
+                          //   Center(
+                          //     child: OutlinedButton.icon(
+                          //       onPressed: _checkUserSession,
+                          //       icon: const Icon(Icons.bug_report),
+                          //       label: const Text('Debug: Check User Session'),
+                          //     ),
+                          //   ),
+                          // ],
                         ],
                       ),
                     ),
@@ -513,4 +609,38 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
           borderSide: const BorderSide(color: AppPallete.secondaryColor),
         ),
       );
+
+  // Tambahkan fungsi ini
+  Future<void> _checkUserSession() async {
+    try {
+      final token = await getToken();
+      final userId = await getUserId().catchError((e) => 0);
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('User Session Info'),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Token: ${token.isNotEmpty ? "Valid (${token.substring(0, 20)}...)" : "Not available"}'),
+              const SizedBox(height: 8),
+              Text('User ID: $userId'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error checking session: ${e.toString()}')),
+      );
+    }
+  }
 }

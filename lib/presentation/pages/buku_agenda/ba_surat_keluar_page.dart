@@ -83,6 +83,7 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
   
   DateTime? _startDate;
   DateTime? _endDate;
+  String _searchQuery = ''; // Tambahkan variabel untuk pencarian
 
   @override
   void initState() {
@@ -174,52 +175,111 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
   // Filter agenda by date range
   List<Agenda> _filterAgendaByDateRange(List<Agenda> agendaList) {
     if (_startDate == null && _endDate == null) {
+      print('⚠️ Tidak ada filter tanggal yang diterapkan');
       return agendaList; // No filter applied
     }
     
-    return agendaList.where((agenda) {
-      // Apply start date filter
-      if (_startDate != null && agenda.tanggalAgenda.isBefore(_startDate!)) {
-        return false;
+    // Mencatat jumlah agenda sebelum filter
+    final beforeCount = agendaList.length;
+    
+    // Menormalkan waktu untuk perbandingan yang adil
+    final normalizedStartDate = _startDate != null 
+        ? DateTime(_startDate!.year, _startDate!.month, _startDate!.day) 
+        : null;
+    
+    final normalizedEndDate = _endDate != null 
+        ? DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59) 
+        : null;
+    
+    final filteredList = agendaList.where((agenda) {
+      // Normalisasi tanggal agenda juga
+      final agendaDate = DateTime(
+        agenda.tanggalAgenda.year,
+        agenda.tanggalAgenda.month,
+        agenda.tanggalAgenda.day,
+      );
+      
+      // Debug untuk memeriksa pembandingan tanggal
+      if (normalizedStartDate != null || normalizedEndDate != null) {
+        print('🗓️ Periksa agenda ${agenda.nomorAgenda} tanggal ${DateFormat('dd/MM/yyyy').format(agenda.tanggalAgenda)}');
       }
       
-      // Apply end date filter
-      if (_endDate != null) {
-        // Add 1 day to include the end date in results
-        final endDatePlusOne = _endDate!.add(const Duration(days: 1));
-        if (agenda.tanggalAgenda.isAfter(endDatePlusOne)) {
+      // Apply start date filter
+      if (normalizedStartDate != null) {
+        final isAfterStart = agendaDate.isAtSameMomentAs(normalizedStartDate) || 
+                            agendaDate.isAfter(normalizedStartDate);
+        if (!isAfterStart) {
+          print('❌ Agenda ${agenda.nomorAgenda} sebelum tanggal mulai');
           return false;
         }
       }
       
+      // Apply end date filter
+      if (normalizedEndDate != null) {
+        final isBeforeEnd = agendaDate.isAtSameMomentAs(normalizedEndDate) || 
+                           agendaDate.isBefore(normalizedEndDate);
+        if (!isBeforeEnd) {
+          print('❌ Agenda ${agenda.nomorAgenda} setelah tanggal akhir');
+          return false;
+        }
+      }
+      
+      print('✅ Agenda ${agenda.nomorAgenda} dalam rentang tanggal filter');
       return true;
     }).toList();
+    
+    // Mencatat jumlah agenda setelah filter
+    print('📊 Filter tanggal: ${beforeCount} agenda → ${filteredList.length} agenda');
+    
+    return filteredList;
   }
 
   // Handle filter button click
   void _handleFilter() {
+    // Parse tanggal dengan mempertimbangkan format yang benar
     _startDate = _parseDateInput(_startDateController.text);
     _endDate = _parseDateInput(_endDateController.text);
     
+    // Debug untuk melihat tanggal yang dipilih
+    if (_startDate != null) {
+      print('🔍 Filter tanggal mulai: ${DateFormat('dd/MM/yyyy').format(_startDate!)}');
+    } else {
+      print('🔍 Filter tanggal mulai: tidak diatur');
+    }
+    
+    if (_endDate != null) {
+      print('🔍 Filter tanggal akhir: ${DateFormat('dd/MM/yyyy').format(_endDate!)}');
+    } else {
+      print('🔍 Filter tanggal akhir: tidak diatur');
+    }
+    
+    // Reload data dengan filter baru
     _loadAgendaSuratKeluar();
   }
 
-  // Parse date from input field
+  // Parse date from input field dengan lebih robust
   DateTime? _parseDateInput(String date) {
     if (date.isEmpty) return null;
     
     try {
-      // Parse from dd/MM/yyyy format
-      final parts = date.split('/');
-      if (parts.length == 3) {
-        return DateTime(
-          int.parse(parts[2]), // year
-          int.parse(parts[1]), // month
-          int.parse(parts[0]), // day
-        );
-      }
-      return null;
+      // Coba parse dengan format dd/MM/yyyy
+      final DateFormat formatter = DateFormat('dd/MM/yyyy');
+      return formatter.parse(date);
     } catch (e) {
+      // Jika gagal, coba parse dengan format alternatif
+      try {
+        final parts = date.split('/');
+        if (parts.length == 3) {
+          return DateTime(
+            int.parse(parts[2]), // year
+            int.parse(parts[1]), // month
+            int.parse(parts[0]), // day
+          );
+        }
+      } catch (e2) {
+        print('Error parsing date: $e2');
+      }
+      
       print('Error parsing date: $e');
       return null;
     }
@@ -293,6 +353,37 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
                 // App Bar
                 const MyAppBar2(),
 
+                const SizedBox(height: 16),
+                
+                // Search Bar - tambahkan search bar di sini
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Cari agenda...',
+                      prefixIcon: const Icon(Icons.search),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10.0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: AppPallete.borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: AppPallete.borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: AppPallete.primaryColor),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
+                ),
+
                 const SizedBox(height: 20),
 
                 // Page Title
@@ -301,7 +392,7 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
                   child: Text(
                     'Agenda Surat Keluar',
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
+                      fontSize: 18,
                       color: AppPallete.textColor,
                       fontWeight: FontWeight.w700,
                     ),
@@ -370,7 +461,21 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
                   ),
                 ),
                   
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                
+                // Implementasikan filter berdasarkan search query
+                if (_searchQuery.isNotEmpty && !_isLoading && _error == null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text(
+                      'Hasil pencarian untuk "$_searchQuery"',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        color: AppPallete.textColor,
+                      ),
+                    ),
+                  ),
 
                 // Display status messages
                 if (_isLoading)
@@ -404,25 +509,13 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
                             ),
                             textAlign: TextAlign.center,
                           ),
-                        ],
-                      ),
-                    ),
-                  )
-                else if (_suratKeluarList.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        children: [
-                          Icon(Icons.inbox, 
-                              color: Colors.grey.shade400, size: 48),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tidak ada data agenda surat keluar',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade600,
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _loadAgendaSuratKeluar,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Muat Ulang'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppPallete.primaryColor,
                             ),
                           ),
                         ],
@@ -430,52 +523,95 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
                     ),
                   )
                 else
-                  // Use ResponsiveTable with real data
-                  Container(
-                    constraints: const BoxConstraints(minHeight: 200),
-                    child: ResponsiveTable<SuratKeluarData>(
-                      columns: const [
-                        'Nomor Agenda',
-                        'Nomor Surat',
-                        'Tujuan',
-                        'Tanggal Surat',
-                      ],
-                      data: _suratKeluarList,
-                      cellBuilders: [
-                        (item) => Text(item.nomorAgenda),
-                        (item) => Text(item.nomorSurat),
-                        (item) => Text(item.tujuan),
-                        (item) => Text(item.tanggalSurat),
-                      ],
-                      headerBackgroundColor: Colors.grey.shade300,
-                      rowBackgroundColor: Colors.grey.shade200,
-                      borderColor: Colors.grey.shade400,
-                      headerStyle: GoogleFonts.poppins(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      cellStyle: GoogleFonts.poppins(
-                        color: Colors.black87,
-                        fontSize: 14,
-                      ),
-                      // Ubah onRowTap menjadi onTap
-                      onTap: (item, index) {
-                        // Navigate to agenda detail page
-                        // You could implement navigation to detail page here
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Tapped on agenda: ${item.nomorAgenda}'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                  _buildAgendaTable(),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+  
+  Widget _buildAgendaTable() {
+    // Filter agenda berdasarkan search query
+    final filteredSuratList = _searchQuery.isEmpty 
+      ? _suratKeluarList 
+      : _suratKeluarList.where((surat) {
+          final query = _searchQuery.toLowerCase();
+          final nomorAgenda = surat.nomorAgenda.toLowerCase();
+          final nomorSurat = surat.nomorSurat.toLowerCase();
+          final tujuan = surat.tujuan.toLowerCase();
+          
+          return nomorAgenda.contains(query) || 
+                 nomorSurat.contains(query) ||
+                 tujuan.contains(query);
+        }).toList();
+
+    if (filteredSuratList.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            children: [
+              Icon(
+                _searchQuery.isEmpty ? Icons.inbox : Icons.search_off,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _searchQuery.isEmpty 
+                  ? 'Tidak ada data agenda surat keluar' 
+                  : 'Tidak ada hasil untuk "$_searchQuery"',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    return Container(
+      constraints: const BoxConstraints(minHeight: 200),
+      child: ResponsiveTable<SuratKeluarData>(
+        columns: const [
+          'Nomor Agenda',
+          'Nomor Surat',
+          'Tujuan',
+          'Tanggal Surat',
+        ],
+        data: filteredSuratList,
+        cellBuilders: [
+          (item) => Text(item.nomorAgenda),
+          (item) => Text(item.nomorSurat),
+          (item) => Text(item.tujuan),
+          (item) => Text(item.tanggalSurat),
+        ],
+        headerBackgroundColor: Colors.grey.shade300,
+        rowBackgroundColor: Colors.grey.shade200,
+        borderColor: Colors.grey.shade400,
+        headerStyle: GoogleFonts.poppins(
+          color: Colors.black,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        cellStyle: GoogleFonts.poppins(
+          color: Colors.black87,
+          fontSize: 14,
+        ),
+        onTap: (item, index) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Tapped on agenda: ${item.nomorAgenda}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
       ),
     );
   }

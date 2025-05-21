@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:surat_masuk_keluar_flutter/data/services/surat_service.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/edit_surat_page.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/disposisi_page.dart';
 
 class DetailSuratMasuk extends StatefulWidget {
   final Surat surat;
@@ -292,6 +293,33 @@ class _DetailSuratMasukState extends State<DetailSuratMasuk> {
                       child: const Text('Buat Agenda Baru'),
                     ),
                   },
+
+                  // Tombol Disposisi
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DisposisiPage(surat: _currentSurat),
+                        ),
+                      ).then((createdDisposisi) {
+                        if (createdDisposisi != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Disposisi berhasil dibuat'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.send),
+                    label: const Text('Disposisikan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ),

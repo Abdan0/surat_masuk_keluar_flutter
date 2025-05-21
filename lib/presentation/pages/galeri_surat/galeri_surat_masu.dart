@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
+import 'package:surat_masuk_keluar_flutter/data/models/surat.dart';
+import 'package:surat_masuk_keluar_flutter/data/services/surat_service.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_apppbar2.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 class GaleriSuratMasuk extends StatefulWidget {
   const GaleriSuratMasuk({super.key});
@@ -10,131 +15,276 @@ class GaleriSuratMasuk extends StatefulWidget {
   State<GaleriSuratMasuk> createState() => _GaleriSuratMasukState();
 }
 
-// Sample data model for the files
-class FileData {
-  final String id;
-  final String title;
-  final String fileType;
-  final String fileUrl;
-
-  FileData({
-    required this.id,
-    required this.title,
-    required this.fileType,
-    required this.fileUrl,
-  });
-}
-
 class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
-  // Sample data
-  final List<FileData> _files = [
-    FileData(
-      id: 'SM-001',
-      title: 'Surat Edaran Libur Idul Adha',
-      fileType: 'PDF',
-      fileUrl: '/path/to/file1.pdf',
-    ),
-    FileData(
-      id: 'SM-002',
-      title: 'Surat Edaran Libur Idul Adha',
-      fileType: 'PDF',
-      fileUrl: '/path/to/file2.pdf',
-    ),
-    FileData(
-      id: 'SM-003',
-      title: 'Undangan Rapat Koordinasi',
-      fileType: 'PDF',
-      fileUrl: '/path/to/file3.pdf',
-    ),
-    FileData(
-      id: 'SM-004',
-      title: 'Memo Internal Divisi IT',
-      fileType: 'PDF',
-      fileUrl: '/path/to/file4.pdf',
-    ),
-    FileData(
-      id: 'SM-005',
-      title: 'Pengumuman Jadwal Kegiatan',
-      fileType: 'DOCX',
-      fileUrl: '/path/to/file5.docx',
-    ),
-    FileData(
-      id: 'SM-006',
-      title: 'Laporan Bulanan Departemen',
-      fileType: 'XLS',
-      fileUrl: '/path/to/file6.xls',
-    ),
-  ];
+  bool _isLoading = true;
+  List<Surat> _suratList = [];
+  String? _error;
+  String _searchQuery = '';
+  
+  // Tambahkan property baru
+  int _selectedTabIndex = 0;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadSuratMasuk();
+  }
+  
+  Future<void> _loadSuratMasuk() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      // Mengambil semua surat masuk tanpa filter file
+      final allSurat = await SuratService.getSuratMasuk();
+      print('📊 Total surat masuk: ${allSurat.length}');
+      print('📊 Surat dengan file: ${allSurat.where((s) => s.file != null && s.file!.isNotEmpty).length}');
+      print('📊 Surat tanpa file: ${allSurat.where((s) => s.file == null || s.file!.isEmpty).length}');
+      
+      // Tampilkan semua surat (tanpa filter)
+      setState(() {
+        _suratList = allSurat;
+        _isLoading = false;
+      });
+      
+      print('✅ Berhasil memuat ${allSurat.length} surat masuk');
+    } catch (e) {
+      setState(() {
+        _error = 'Gagal memuat data: $e';
+        _isLoading = false;
+      });
+      print('❌ Error memuat surat masuk: $e');
+    }
+  }
+  
+  // Filter surat berdasarkan query pencarian dan tab
+  List<Surat> _getFilteredSuratList() {
+    // Pertama filter berdasarkan tab yang dipilih
+    List<Surat> filteredByTab;
+    
+    switch (_selectedTabIndex) {
+      case 1: // Dengan File
+        filteredByTab = _suratList.where((surat) => 
+          surat.file != null && surat.file!.isNotEmpty).toList();
+        break;
+      case 2: // Tanpa File
+        filteredByTab = _suratList.where((surat) => 
+          surat.file == null || surat.file!.isEmpty).toList();
+        break;
+      case 0: // Semua
+      default:
+        filteredByTab = _suratList;
+        break;
+    }
+    
+    // Kemudian filter berdasarkan query pencarian
+    if (_searchQuery.isEmpty) {
+      return filteredByTab;
+    }
+    
+    return filteredByTab.where((surat) {
+      final query = _searchQuery.toLowerCase();
+      final nomorSurat = surat.nomorSurat?.toLowerCase() ?? '';
+      final perihal = surat.perihal.toLowerCase();
+      final asal = surat.asalSurat?.toLowerCase() ?? '';
+      
+      return nomorSurat.contains(query) || 
+             perihal.contains(query) ||
+             asal.contains(query);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppPallete.backgroundColor,
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // AppBar
-              const MyAppBar2(),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: AppPallete.backgroundColor,
+        body: RefreshIndicator(
+          onRefresh: _loadSuratMasuk,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // AppBar
+                  const MyAppBar2(),
 
-              const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-              // Judul Halaman
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: Text(
-                  'Galeri Berkas Surat Masuk',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    color: AppPallete.textColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  textAlign: TextAlign.left,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-              
-              // Search Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Cari berkas...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(color: AppPallete.borderColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(color: AppPallete.borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(color: AppPallete.primaryColor),
+                  // Judul Halaman
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Text(
+                      'Galeri Surat Masuk',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        color: AppPallete.textColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.left,
                     ),
                   ),
-                  onChanged: (value) {
-                    // Implement search functionality
-                  },
-                ),
+
+                  const SizedBox(height: 16),
+                  
+                  // Tab Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: TabBar(
+                      tabs: const [
+                        Tab(text: 'Semua'),
+                        Tab(text: 'Dengan File'),
+                        Tab(text: 'Tanpa File'),
+                      ],
+                      onTap: (index) {
+                        setState(() {
+                          _selectedTabIndex = index;
+                        });
+                      },
+                      labelStyle: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Search Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Cari surat...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(color: AppPallete.borderColor),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(color: AppPallete.borderColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(color: AppPallete.primaryColor),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value;
+                        });
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Content
+                  _buildContent(),
+                ],
               ),
-
-              const SizedBox(height: 20),
-
-              // Galeri Surat
-              _buildFileGrid(),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+  
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, color: Colors.red.shade400, size: 60),
+              const SizedBox(height: 16),
+              Text(
+                'Gagal memuat data',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: GoogleFonts.poppins(fontSize: 14, color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadSuratMasuk,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Coba Lagi'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppPallete.primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    final filteredList = _getFilteredSuratList();
+    
+    if (filteredList.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.folder_off, color: Colors.grey.shade400, size: 60),
+              const SizedBox(height: 16),
+              Text(
+                _searchQuery.isEmpty 
+                  ? 'Tidak ada surat masuk yang memiliki lampiran file'
+                  : 'Tidak ditemukan hasil pencarian',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/transaksi-surat-masuk');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppPallete.primaryColor,
+                ),
+                child: const Text('Lihat Semua Surat Masuk'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    return _buildFileGrid(filteredList);
+  }
 
-  Widget _buildFileGrid() {
+  Widget _buildFileGrid(List<Surat> suratList) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -145,47 +295,59 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: _files.length,
+      itemCount: suratList.length,
       itemBuilder: (context, index) {
-        final file = _files[index];
-        return _buildFileCard(file);
+        final surat = suratList[index];
+        return _buildFileCard(surat);
       },
     );
   }
 
-  Widget _buildFileCard(FileData file) {
-    Color cardColor;
-    IconData fileIcon;
+  Widget _buildFileCard(Surat surat) {
+    // Cek apakah surat memiliki file atau tidak
+    final bool hasFile = surat.file != null && surat.file!.isNotEmpty;
     
-    // Set color and icon based on file type
-    switch (file.fileType) {
-      case 'PDF':
-        cardColor = Colors.grey.shade200;
-        fileIcon = Icons.picture_as_pdf;
-        break;
-      case 'DOCX':
-        cardColor = Colors.blue.shade100;
-        fileIcon = Icons.description;
-        break;
-      case 'XLS':
-        cardColor = Colors.green.shade100;
-        fileIcon = Icons.table_chart;
-        break;
-      default:
-        cardColor = Colors.grey.shade200;
-        fileIcon = Icons.insert_drive_file;
+    // Set default untuk dokumen tanpa file
+    Color cardColor = Colors.grey.shade100;
+    IconData fileIcon = Icons.description;
+    String fileExtension = "DOKUMEN";
+    
+    // Jika memiliki file, tentukan jenis file
+    if (hasFile) {
+      fileExtension = _getFileExtension(surat.file!).toUpperCase();
+      
+      // Set color and icon based on file type
+      switch (fileExtension) {
+        case 'PDF':
+          cardColor = Colors.grey.shade200;
+          fileIcon = Icons.picture_as_pdf;
+          break;
+        case 'DOCX':
+        case 'DOC':
+          cardColor = Colors.blue.shade100;
+          fileIcon = Icons.description;
+          break;
+        case 'XLS':
+        case 'XLSX':
+          cardColor = Colors.green.shade100;
+          fileIcon = Icons.table_chart;
+          break;
+        default:
+          cardColor = Colors.grey.shade200;
+          fileIcon = Icons.insert_drive_file;
+      }
     }
+    
+    // Format tanggal untuk ID
+    final formattedDate = surat.tanggalSurat != null 
+      ? DateFormat('ddMMyy').format(surat.tanggalSurat!) 
+      : '';
+    
+    // Buat file ID
+    final fileId = 'SM-${surat.id ?? formattedDate}';
 
     return InkWell(
-      onTap: () {
-        // Handle file tap - open the file or show details
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Opening file: ${file.title}'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      },
+      onTap: () => hasFile ? _openFilePreview(surat) : _showSuratDetail(surat),
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(
@@ -212,17 +374,17 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min, // To avoid vertical overflow
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          file.fileType,
+                          hasFile ? fileExtension : "DOKUMEN",
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                           ),
                         ),
                         Text(
-                          file.id,
+                          fileId,
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w500,
                             fontSize: 12,
@@ -232,6 +394,24 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
                       ],
                     ),
                   ),
+                  // Tampilkan badge jika tidak ada file
+                  if (!hasFile)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.orange.shade300),
+                      ),
+                      child: Text(
+                        'No File',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.orange.shade800,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -239,17 +419,17 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
             // File Info
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(8.0), // Reduced padding
+                padding: const EdgeInsets.all(8.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title with proper overflow handling
+                    // Title
                     Expanded(
                       child: Text(
-                        file.title,
+                        surat.perihal,
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
-                          fontSize: 13, // Smaller font size
+                          fontSize: 13,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -260,15 +440,13 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // View Button - more compact
+                        // View Button - different text based on whether there's a file
                         Expanded(
                           child: TextButton.icon(
-                            onPressed: () {
-                              // Open view action
-                            },
-                            icon: const Icon(Icons.visibility, size: 14),
-                            label: const Text(
-                              'Lihat',
+                            onPressed: () => hasFile ? _openFilePreview(surat) : _showSuratDetail(surat),
+                            icon: Icon(hasFile ? Icons.visibility : Icons.info_outline, size: 14),
+                            label: Text(
+                              hasFile ? 'Lihat File' : 'Detail',
                               overflow: TextOverflow.ellipsis,
                             ),
                             style: TextButton.styleFrom(
@@ -283,12 +461,9 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
                           ),
                         ),
                         
-                        // Action/Menu Button
+                        // Menu Button
                         IconButton(
-                          onPressed: () {
-                            // Show options menu
-                            _showFileOptions(context, file);
-                          },
+                          onPressed: () => _showFileOptions(context, surat),
                           icon: const Icon(Icons.more_vert, size: 18),
                           splashRadius: 18,
                           padding: EdgeInsets.zero,
@@ -306,7 +481,9 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
     );
   }
   
-  void _showFileOptions(BuildContext context, FileData file) {
+  void _showFileOptions(BuildContext context, Surat surat) {
+    final bool hasFile = surat.file != null && surat.file!.isNotEmpty;
+    
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -318,42 +495,193 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (hasFile) ...[
+                ListTile(
+                  leading: const Icon(Icons.remove_red_eye),
+                  title: const Text('Lihat File'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openFilePreview(surat);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.download),
+                  title: const Text('Unduh'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _downloadFile(surat);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.share),
+                  title: const Text('Bagikan'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _shareFile(surat);
+                  },
+                ),
+              ],
+              if (!hasFile) ...[
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('Detail Surat'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSuratDetail(surat);
+                  },
+                ),
+              ],
+              // Opsi untuk semua jenis surat
               ListTile(
-                leading: const Icon(Icons.remove_red_eye),
-                title: const Text('Lihat'),
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Surat'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Open view action
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.download),
-                title: const Text('Unduh'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Download file action
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.share),
-                title: const Text('Bagikan'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Share file action
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Hapus', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Delete file action
+                  // Navigasi ke halaman edit
+                  // Navigator.push(context, MaterialPageRoute(builder: (context) => EditSuratPage(surat: surat)));
                 },
               ),
             ],
           ),
         );
       },
+    );
+  }
+  
+  // Helper method untuk membuka preview file
+  Future<void> _openFilePreview(Surat surat) async {
+    if (surat.file == null || surat.file!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File tidak tersedia'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    try {
+      final fileUrl = await SuratService.getFileUrl(surat.file!);
+      if (fileUrl.isNotEmpty) {
+        final uri = Uri.parse(fileUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          throw Exception('Tidak dapat membuka file');
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal membuka file: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  // Helper method untuk mengunduh file
+  Future<void> _downloadFile(Surat surat) async {
+    try {
+      final fileUrl = await SuratService.getFileUrl(surat.file!);
+      if (fileUrl.isNotEmpty) {
+        final uri = Uri.parse(fileUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mengunduh file...'), backgroundColor: Colors.green),
+          );
+        } else {
+          throw Exception('Tidak dapat mengunduh file');
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengunduh file: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  // Helper method untuk membagikan file
+  Future<void> _shareFile(Surat surat) async {
+    try {
+      final fileUrl = await SuratService.getFileUrl(surat.file!);
+      if (fileUrl.isNotEmpty) {
+        await Share.share(
+          'Bagikan dokumen: ${surat.perihal}\n$fileUrl',
+          subject: 'Dokumen: ${surat.perihal}',
+        );
+      } else {
+        throw Exception('URL file tidak tersedia');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal membagikan file: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  // Helper untuk mendapatkan ekstensi file
+  String _getFileExtension(String filePath) {
+    if (filePath.isEmpty) return '';
+    
+    final parts = filePath.split('.');
+    if (parts.length > 1) {
+      return parts.last;
+    }
+    return '';
+  }
+  
+  void _showSuratDetail(Surat surat) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Detail Surat', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDetailRow('Nomor Surat', surat.nomorSurat ?? '-'),
+              _buildDetailRow('Perihal', surat.perihal),
+              _buildDetailRow('Asal Surat', surat.asalSurat ?? '-'),
+              _buildDetailRow('Tanggal', surat.tanggalSurat != null 
+                ? DateFormat('dd MMMM yyyy').format(surat.tanggalSurat!) 
+                : '-'),
+              _buildDetailRow('Status', surat.status ?? '-'),
+              const Divider(),
+              _buildDetailRow('File', 'Dokumen ini tidak memiliki file terlampir', isWarning: true),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {bool isWarning = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: isWarning ? Colors.orange[700] : Colors.black87,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

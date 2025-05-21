@@ -216,9 +216,18 @@ class SuratService {
   static Future<Surat> createSuratWithErrorHandling(
     Surat surat, {
     File? pdfFile,
-    bool createAgenda = true,
+    bool createAgenda = false,
   }) async {
     try {
+      print('🔍 Mencoba membuat surat baru...');
+      
+      // Validasi user ID sebelum membuat request
+      if (surat.userId == null || surat.userId == 0) {
+        print('⚠️ User ID tidak valid: ${surat.userId}');
+        throw Exception('User ID tidak valid. Silakan login kembali.');
+      }
+      
+      // Lanjutkan dengan request ke server
       print('📤 Mengirim request pembuatan surat...');
       
       Surat createdSurat;
@@ -749,4 +758,17 @@ class SuratService {
     rethrow;
   }
 }
+
+  // Mengembalikan URL lengkap untuk akses file
+  static Future<String> getFileUrl(String filePath) async {
+    if (filePath.isEmpty) return '';
+    
+    // Cek apakah filePath sudah berupa URL lengkap
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      return filePath;
+    }
+    
+    // Jika file path relatif, tambahkan baseURL
+    return '$baseURL/storage/$filePath';
+  }
 }

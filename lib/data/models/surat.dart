@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
 import 'package:surat_masuk_keluar_flutter/data/services/agenda_service.dart';
 import 'package:surat_masuk_keluar_flutter/data/models/agenda.dart';
+import 'package:surat_masuk_keluar_flutter/data/services/disposisi_service.dart';
+import 'package:surat_masuk_keluar_flutter/data/models/disposisi.dart';
+import 'package:surat_masuk_keluar_flutter/data/services/auth_service.dart';
+import 'package:surat_masuk_keluar_flutter/data/services/user_service.dart' as UserService;
 
 class Surat {
   final int? id;
@@ -53,7 +57,7 @@ class Surat {
         : DateTime.now(),
       perihal: json['perihal'] ?? '',
       isi: json['isi'] ?? '',
-      file: json['file'],
+      file: json['file'] ?? '',
       status: json['status'] ?? 'draft',
       userId: json['user_id'] ?? 0,
       createdAt: json['created_at'],
@@ -121,6 +125,72 @@ class Surat {
     } catch (e) {
       print('Error mendapatkan agenda: $e');
       return null;
+    }
+  }
+
+  // Method helper untuk mengambil disposisi terkait surat ini
+  Future<List<Disposisi>> getDisposisi() async {
+    if (id == null) {
+      throw Exception('ID Surat tidak valid untuk mendapatkan disposisi');
+    }
+    
+    try {
+      return await DisposisiService.getDisposisiBySuratId(id!);
+    } catch (e) {
+      print('Error getting disposisi for surat: $e');
+      return []; // Return empty list instead of throwing
+    }
+  }
+
+  // Method helper untuk membuat disposisi baru
+  Future<Disposisi> createDisposisiForSurat({
+    required int dariUserId,
+    required int kepadaUserId,
+    String? instruksi,
+    String status = 'diajukan',
+  }) async {
+    if (id == null) {
+      throw Exception('ID Surat tidak valid untuk membuat disposisi');
+    }
+    
+    try {
+      final disposisi = Disposisi(
+        suratId: id!,
+        dariUserId: dariUserId,
+        kepadaUserId: kepadaUserId,
+        instruksi: instruksi,
+        status: status,
+        tanggalDisposisi: DateTime.now(),
+      );
+      
+      return await DisposisiService.createDisposisi(disposisi);
+    } catch (e) {
+      print('Error creating disposisi for surat: $e');
+      rethrow;
+    }
+  }
+
+  // Method helper untuk membuat disposisi dengan user yang login sebagai pengirim
+  Future<Disposisi> disposisikanKe(int kepadaUserId, {String? instruksi}) async {
+    if (id == null) {
+      throw Exception('ID Surat tidak valid untuk membuat disposisi');
+    }
+    
+    try {
+      // Dapatkan ID user yang login menggunakan UserService
+      final dariUserId = await UserService.getUserId() ?? 0;
+      if (dariUserId == 0) {
+        throw Exception('User ID tidak valid');
+      }
+      
+      return createDisposisiForSurat(
+        dariUserId: dariUserId,
+        kepadaUserId: kepadaUserId,
+        instruksi: instruksi,
+      );
+    } catch (e) {
+      print('Error disposisikan surat: $e');
+      rethrow;
     }
   }
 }

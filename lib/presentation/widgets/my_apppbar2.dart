@@ -19,44 +19,10 @@ class MyAppBar2 extends StatelessWidget {
         final profileWidth = constraints.maxWidth * (isSmallScreen ? 0.38 : 0.34);
         
         return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Search Bar
-            Flexible(
-              child: Container(
-                height: 55,
-                width: searchBarWidth,
-                padding: EdgeInsets.symmetric(
-                  vertical: isSmallScreen ? 12 : 18, 
-                  horizontal: isSmallScreen ? 8 : 12
-                ),
-                margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 6 : 10),
-                decoration: BoxDecoration(
-                  color: AppPallete.borderColor,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search, 
-                      size: isSmallScreen ? 18 : 24
-                    ),
-                    SizedBox(width: isSmallScreen ? 6 : 8),
-                    Expanded(
-                      child: Text(
-                        'Cari', 
-                        style: GoogleFonts.poppins(
-                          fontSize: isSmallScreen ? 11 : 12, 
-                          color: AppPallete.textColor
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
             // Profile & Notification Section
             Container(

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
@@ -71,23 +72,85 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
     });
 
     try {
-      final userId = await getUserId() ?? 0;
+      // Mendapatkan user ID dengan mencoba beberapa pendekatan
+      int userId;
+      try {
+        userId = await getUserId();
+        print('👤 Menggunakan user ID: $userId');
+      } catch (e) {
+        print('❌ Error mendapatkan user ID: $e');
+        
+        // Mencoba refresh token terlebih dahulu
+        final tokenRefreshed = await refreshToken();
+        if (tokenRefreshed) {
+          try {
+            userId = await getUserId();
+            print('👤 Menggunakan user ID setelah refresh token: $userId');
+          } catch (refreshError) {
+            // Tampilkan error dan minta user login ulang
+            setState(() {
+              _isLoading = false;
+            });
+            
+            if (!mounted) return;
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Session telah berakhir, silakan login kembali'),
+                backgroundColor: Colors.red,
+                action: SnackBarAction(
+                  label: 'Login',
+                  onPressed: () {
+                    // Navigate to login page
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  },
+                ),
+              ),
+            );
+            return;
+          }
+        } else {
+          // Jika refresh gagal, gunakan fixed default (hanya untuk debugging)
+          if (kDebugMode) {
+            userId = 1; // Default untuk debugging
+            print('⚠️ WARNING: Menggunakan default user ID = $userId (hanya untuk debugging)');
+          } else {
+            // Di production, tampilkan error
+            setState(() {
+              _isLoading = false;
+            });
+            
+            if (!mounted) return;
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Gagal mendapatkan data user. Silakan login kembali.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+        }
+      }
       
-      // Buat objek surat
+      // Buat objek surat dengan user ID yang valid
       final surat = Surat(
         nomorSurat: nomorSuratController.text,
-        tipe: 'keluar', // Tipe surat keluar
+        tipe: 'keluar',
         kategori: _selectedKategoriDropdown == '--Kategori Surat--' ? 'internal' : _selectedKategoriDropdown!,
-        asalSurat: 'Fakultas Ilmu Komputer', // Default untuk surat keluar
-        tujuanSurat: tujuanSuratController.text, // Field tujuan surat untuk surat keluar
+        asalSurat: 'Fakultas Ilmu Komputer',
+        tujuanSurat: tujuanSuratController.text,
         tanggalSurat: DateTime.parse(tanggalController.text),
         perihal: perihalSuratController.text,
         isi: isiSuratController.text,
         status: 'draft',
-        userId: userId,
+        userId: userId, // User ID yang valid
       );
 
-      // Simpan surat ke API menggunakan two-step approach untuk menghindari masalah format
+      // Logging
+      print('📝 Mengirim surat keluar dengan user ID: $userId');
+
+      // Simpan surat ke API
       final createdSurat = await SuratService.createSuratWithErrorHandling(
         surat, 
         pdfFile: _selectedFile != null ? File(_selectedFile!.path!) : null,

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/disposisi_page.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class MyDetailSurat extends StatelessWidget {
   final String nomorSurat;
   final String tanggalSurat;
   final String pengirimSurat;
-  // Tambahkan parameter tujuanSurat
   final String tujuanSurat;
   final String nomorAgenda;
   final String klasifikasiSurat;
@@ -17,7 +17,6 @@ class MyDetailSurat extends StatelessWidget {
   final String updateOnController;
   final VoidCallback? onDisposisiTap;
   final VoidCallback? onPdfTap;
-  // Tambahkan parameter untuk edit dan delete
   final VoidCallback? onEditTap;
   final VoidCallback? onDeleteTap;
 
@@ -26,7 +25,6 @@ class MyDetailSurat extends StatelessWidget {
     required this.nomorSurat,
     required this.tanggalSurat,
     required this.pengirimSurat,
-    // Tambahkan parameter wajib untuk tujuanSurat
     required this.tujuanSurat,
     required this.nomorAgenda,
     required this.klasifikasiSurat,
@@ -43,18 +41,19 @@ class MyDetailSurat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Buat map untuk detail informasi surat
     final Map<String, String> detailItems = {
       'Tanggal Surat': tanggalSurat,
       'Nomor Surat': nomorSurat,
       'Nomor Agenda': nomorAgenda,
       'Klasifikasi Surat': klasifikasiSurat,
       'Pengirim Surat': pengirimSurat,
-      // Tambahkan tujuan surat ke detail items
       'Tujuan Surat': tujuanSurat,
       'Dibuat Oleh': createByController,
       'Dibuat Pada': createOnController,
       'Diperbarui Pada': updateOnController,
     };
+    
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Card(
@@ -72,404 +71,234 @@ class MyDetailSurat extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                //Bagian Atas Card
+                // Header section - title and actions
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Atribut Surat - Gunakan Expanded untuk mencegah overflow
+                    // Title section
                     Expanded(
-                      flex: 3,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             nomorSurat,
-                            style: const TextStyle(
-                              color: AppPallete.textColor,
-                              fontWeight: FontWeight.w600,
+                            style: GoogleFonts.poppins(
                               fontSize: 16,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 8.0),
-                          Wrap(
-                            spacing: 5.0, // jarak horizontal antar items
-                            children: [
-                              Text(
-                                pengirimSurat,
-                                style: const TextStyle(
-                                  color: AppPallete.textColor,
-                                  fontSize: 12.0,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const Text(
-                                '|',
-                                style: TextStyle(
-                                  color: AppPallete.textColor,
-                                  fontSize: 12.0,
-                                ),
-                              ),
-                              // Tambahkan tujuan surat jika bukan '-'
-                              if (tujuanSurat != '-') ...[
-                                Text(
-                                  tujuanSurat,
-                                  style: const TextStyle(
-                                    color: AppPallete.textColor,
-                                    fontSize: 12.0,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const Text(
-                                  '|',
-                                  style: TextStyle(
-                                    color: AppPallete.textColor,
-                                    fontSize: 12.0,
-                                  ),
-                                ),
-                              ],
-                              Text(
-                                nomorAgenda,
-                                style: const TextStyle(
-                                  color: AppPallete.textColor,
-                                  fontSize: 12.0,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const Text(
-                                '|',
-                                style: TextStyle(
-                                  color: AppPallete.textColor,
-                                  fontSize: 12.0,
-                                ),
-                              ),
-                              Text(
-                                klasifikasiSurat,
-                                style: const TextStyle(
-                                  color: AppPallete.textColor,
-                                  fontSize: 12.0,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-
-                    // Tanggal Surat
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Tanggal Surat',
-                            style: TextStyle(
-                              color: AppPallete.textColor, 
-                              fontSize: 12.0,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.bold,
+                              color: AppPallete.textColor,
                             ),
                           ),
-                          const SizedBox(height: 4.0),
                           Text(
-                            tanggalSurat,
-                            style: const TextStyle(
-                              color: AppPallete.textColor, 
-                              fontSize: 12.0,
+                            pengirimSurat,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          )
+                          ),
                         ],
                       ),
                     ),
-
-                    // Button Disposisi
-                    SizedBox(
-                      height: 36,
-                      width: 80,
-                      child: ElevatedButton(
-                        onPressed: onDisposisiTap ?? () {
-                          Navigator.push(
-                            context, 
-                            MaterialPageRoute(
-                              builder: (context) => const DisposisiPage()
-                            )
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppPallete.primaryColor,
+                    
+                    // Actions row
+                    Row(
+                      children: [
+                        // Disposisi button
+                        if (onDisposisiTap != null)
+                          SizedBox(
+                            height: 36,
+                            width: 80,
+                            child: ElevatedButton(
+                              onPressed: onDisposisiTap,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppPallete.primaryColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text(
+                                'Disposisi',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        
+                        // More options menu
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert),
+                          offset: const Offset(0, 40),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                        ),
-                        child: const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'Disposisi',
-                            style: TextStyle(
-                              color: AppPallete.whiteColor,
-                              fontSize: 10,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // Menu options - Perbaikan struktur
-                    IconButton(
-                      icon: const Icon(Icons.more_vert, size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        print('Menu button clicked'); // Debug log
-                        
-                        // Show options menu
-                        showModalBottomSheet(
-                          context: context,
-                          builder: (context) => Container(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Edit option
-                                ListTile(
-                                  leading: const Icon(Icons.edit),
-                                  title: const Text('Edit'),
-                                  onTap: () {
-                                    print('Edit option selected'); // Debug log
-                                    Navigator.pop(context); // Close bottom sheet first
-                                    
-                                    if (onEditTap != null) {
-                                      Future.delayed(const Duration(milliseconds: 300), () {
-                                        onEditTap!();
-                                      });
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Fungsi edit belum diimplementasikan')),
-                                      );
-                                    }
-                                  },
+                          onSelected: (value) {
+                            switch (value) {
+                              case 'edit':
+                                if (onEditTap != null) onEditTap!();
+                                break;
+                              case 'delete':
+                                if (onDeleteTap != null) onDeleteTap!();
+                                break;
+                              case 'pdf':
+                                if (onPdfTap != null) onPdfTap!();
+                                break;
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            if (onPdfTap != null)
+                              const PopupMenuItem(
+                                value: 'pdf',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.picture_as_pdf, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('Lihat PDF'),
+                                  ],
                                 ),
-                                
-                                // Delete option
-                                ListTile(
-                                  leading: const Icon(Icons.delete, color: Colors.red),
-                                  title: const Text('Hapus', style: TextStyle(color: Colors.red)),
-                                  onTap: () {
-                                    print('Delete option selected'); // Debug log
-                                    Navigator.pop(context); // Close bottom sheet first
-                                    
-                                    if (onDeleteTap != null) {
-                                      Future.delayed(const Duration(milliseconds: 300), () {
-                                        onDeleteTap!();
-                                      });
-                                    } else {
-                                      // Default confirmation
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text('Konfirmasi Hapus'),
-                                          content: const Text('Apakah Anda yakin ingin menghapus surat ini?'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(context),
-                                              child: const Text('Batal'),
-                                            ),
-                                            TextButton(
-                                              onPressed: () {
-                                                Navigator.pop(context);
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(content: Text('Fungsi hapus belum diimplementasikan')),
-                                                );
-                                              },
-                                              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }
-                                  },
+                              ),
+                            if (onEditTap != null)
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit, color: Colors.blue),
+                                    SizedBox(width: 8),
+                                    Text('Edit'),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+                              ),
+                            if (onDeleteTap != null)
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('Hapus'),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 12),
-
-                const Divider(
-                  thickness: 1,
-                  color: Colors.black45,
-                ),
-
-                //Bagian Bawah Card
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Detail surat - menggunakan Expanded untuk mencegah overflow
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              ringkasanSurat,
+                
+                const Divider(thickness: 1),
+                
+                // Detail items in a cleaner layout
+                Column(
+                  children: detailItems.entries.map((entry) {
+                    // Skip empty fields
+                    if (entry.value.isEmpty || entry.value == '-') return const SizedBox.shrink();
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Label - fixed width for alignment
+                          SizedBox(
+                            width: 120,
+                            child: Text(
+                              entry.key,
                               style: const TextStyle(
-                                color: AppPallete.textColor,
-                                fontSize: 14.0,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF29314F),
+                                fontSize: 14,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              keteranganSurat,
+                          ),
+                          
+                          // Separator
+                          const Text(
+                            " : ",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF29314F),
+                              fontSize: 14,
+                            ),
+                          ),
+                          
+                          // Value with text wrapping
+                          Expanded(
+                            child: Text(
+                              entry.value,
                               style: const TextStyle(
-                                color: AppPallete.textColor,
-                                fontSize: 13.0,
+                                fontSize: 14, 
+                                color: Color(0xFF29314F),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      
-                      // PDF icon
-                      IconButton(
-                        onPressed: onPdfTap ?? () {
-                          // Default action if onPdfTap is null
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Membuka dokumen PDF')),
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.picture_as_pdf,
-                          color: Colors.red,
-                          size: 30,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      )
-                    ],
+                    );
+                  }).toList(),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Content section
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppPallete.borderColor),
                   ),
-                ),
-
-                const Divider(
-                  thickness: 1,
-                  color: Colors.black45,
-                ),
-
-                // Detail section dengan tampilan yang lebih baik
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 12.0),
-                        child: Text(
-                          "Detail Informasi Surat",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppPallete.textColor,
-                          ),
+                      Text(
+                        ringkasanSurat,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppPallete.textColor,
                         ),
                       ),
-                      ...detailItems.entries.map((entry) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                      const SizedBox(height: 8),
+                      Text(
+                        keteranganSurat,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppPallete.textColor,
+                        ),
+                      ),
+                      if (onPdfTap != null) ...[
+                        const SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: onPdfTap,
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Label
-                              Expanded(
-                                flex: 5,
-                                child: Text(
-                                  entry.key,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF29314F),
-                                    fontSize: 14,
-                                  ),
-                                ),
+                              const Icon(
+                                Icons.picture_as_pdf,
+                                color: Colors.red,
                               ),
-                              // Separator
-                              const Text(
-                                " : ",
+                              const SizedBox(width: 8),
+                              Text(
+                                'Buka Lampiran PDF',
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF29314F),
-                                  fontSize: 14,
-                                ),
-                              ),
-                              // Value dengan wrapping text untuk menghindari overflow
-                              Expanded(
-                                flex: 6,
-                                child: Text(
-                                  entry.value,
-                                  style: const TextStyle(
-                                    fontSize: 14, 
-                                    color: Color(0xFF29314F),
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
+                                  color: Colors.blue[700],
+                                  decoration: TextDecoration.underline,
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      }),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                
-                // Button bar untuk navigasi tambahan
-                              Padding(
-                                padding: const EdgeInsets.only(top: 16.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    TextButton.icon(
-                                      onPressed: () {
-                                        // Implementasi cetak dokumen
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Mencetak dokumen')),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.print, size: 18),
-                                      label: const Text('Cetak', style: TextStyle(fontSize: 12)),
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      ),
-                                    ),
-                                    TextButton.icon(
-                                      onPressed: () {
-                                        // Implementasi share dokumen
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Berbagi dokumen')),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.share, size: 18),
-                                      label: const Text('Bagikan', style: TextStyle(fontSize: 12)),
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-              }
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

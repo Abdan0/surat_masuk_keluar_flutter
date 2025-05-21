@@ -20,6 +20,7 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
   bool _isLoading = true;
   String? _error;
   List<Surat> _suratList = [];
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -62,30 +63,60 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
               children: [
                 // App Bar
                 const MyAppBar2(),
-                const SizedBox(height: 20),
-
-                // Halaman
+                
+                const SizedBox(height: 16),
+                
+                // Search Bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'Surat Masuk',
-                    style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: AppPallete.textColor,
-                        fontWeight: FontWeight.w700),
-                    textAlign: TextAlign.left,
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Cari surat...',
+                      prefixIcon: const Icon(Icons.search),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10.0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: AppPallete.borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: AppPallete.borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: AppPallete.primaryColor),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
                   ),
                 ),
 
-                // Button Tambah
+                const SizedBox(height: 20),
+
+                // Halaman dan Tombol Tambah baris yang sama
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: SizedBox(
-                      height: 40,
-                      width: 100,
-                      child: ElevatedButton(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Judul Halaman
+                      Text(
+                        'Surat Masuk',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          color: AppPallete.textColor,
+                          fontWeight: FontWeight.w700
+                        ),
+                      ),
+                      
+                      // Button Tambah
+                      SizedBox(
+                        height: 40,
+                        child: ElevatedButton.icon(
                           onPressed: () {
                             Navigator.push(
                               context, 
@@ -94,27 +125,45 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
                               )
                             ).then((_) => _loadSuratMasuk());
                           },
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Tambah'),
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: AppPallete.primaryColor,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12))),
-                          child: const Text(
-                            'Tambah',
-                            style: TextStyle(
-                              color: AppPallete.whiteColor,
-                              fontSize: 12,
-                            ),
-                            textAlign: TextAlign.center,
-                          )),
-                    ),
+                            backgroundColor: AppPallete.primaryColor,
+                            foregroundColor: AppPallete.whiteColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)
+                            )
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                
+                // Implementasikan filter berdasarkan search query
+                if (_searchQuery.isNotEmpty && !_isLoading && _error == null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text(
+                      'Hasil pencarian untuk "$_searchQuery"',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        color: AppPallete.textColor,
+                      ),
+                    ),
+                  ),
 
                 // Tampilkan loading, error atau daftar surat
                 _isLoading 
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40.0),
+                        child: CircularProgressIndicator(),
+                      )
+                    )
                   : _error != null
                     ? Center(
                         child: Column(
@@ -135,62 +184,100 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
                           ],
                         ),
                       )
-                    : _suratList.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: Text(
-                              'Belum ada surat masuk',
-                              style: TextStyle(
-                                color: AppPallete.textColor,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _suratList.length,
-                          itemBuilder: (context, index) {
-                            final surat = _suratList[index];
-                            final formattedDate = DateFormat('dd/MM/yyyy').format(surat.tanggalSurat);
-                            
-                            return MySuratCard(
-                              nomorSurat: surat.nomorSurat,
-                              tanggalSurat: formattedDate,
-                              pengirimSurat: surat.asalSurat,
-                              nomorAgenda: 'AG-${surat.id}',
-                              klasifikasiSurat: surat.kategori,
-                              ringkasanSurat: surat.perihal,
-                              keteranganSurat: surat.isi,
-                              onPdfTap: surat.file != null ? () {
-                                // Implementasi buka PDF
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Membuka file: ${surat.file}')),
-                                );
-                              } : null,
-                              onTap: () async {
-                                final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => DetailSuratMasuk(surat: surat),
-                                  ),
-                                );
-                                
-                                // Refresh jika ada perubahan (edit/hapus)
-                                if (result != null) {
-                                  _loadSuratMasuk();
-                                }
-                              },
-                            );
-                          },
-                        ),
+                    : _buildSuratList(),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+  
+  Widget _buildSuratList() {
+    // Filter surat berdasarkan search query
+    final filteredSuratList = _searchQuery.isEmpty 
+      ? _suratList 
+      : _suratList.where((surat) {
+          final query = _searchQuery.toLowerCase();
+          final nomorSurat = surat.nomorSurat?.toLowerCase() ?? '';
+          final perihal = surat.perihal.toLowerCase();
+          final asalSurat = surat.asalSurat?.toLowerCase() ?? '';
+          final tujuanSurat = surat.tujuanSurat?.toLowerCase() ?? '';
+          
+          return nomorSurat.contains(query) || 
+                 perihal.contains(query) ||
+                 asalSurat.contains(query) ||
+                 tujuanSurat.contains(query);
+        }).toList();
+
+    if (filteredSuratList.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            children: [
+              Icon(
+                _searchQuery.isEmpty ? Icons.mail_outline : Icons.search_off,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _searchQuery.isEmpty 
+                  ? 'Belum ada surat masuk' 
+                  : 'Tidak ada hasil untuk "$_searchQuery"',
+                style: TextStyle(
+                  color: AppPallete.textColor,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: filteredSuratList.length,
+      itemBuilder: (context, index) {
+        final surat = filteredSuratList[index];
+        final formattedDate = DateFormat('dd/MM/yyyy').format(surat.tanggalSurat);
+        
+        return MySuratCard(
+          tipeSurat: 'masuk',
+          nomorSurat: surat.nomorSurat,
+          tanggalSurat: formattedDate,
+          pengirimSurat: surat.asalSurat,
+          tujuanSurat: surat.tujuanSurat ?? '-',
+          nomorAgenda: 'AGM-${surat.id}',
+          klasifikasiSurat: surat.kategori,
+          ringkasanSurat: surat.perihal,
+          keteranganSurat: surat.isi,
+          status: surat.status,
+          onPdfTap: surat.file != null ? () {
+            // Implementasi buka PDF
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Membuka file: ${surat.file}')),
+            );
+          } : null,
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DetailSuratMasuk(surat: surat),
+              ),
+            );
+            
+            // Refresh jika ada perubahan (edit/hapus)
+            if (result != null) {
+              _loadSuratMasuk();
+            }
+          },
+        );
+      },
     );
   }
 }

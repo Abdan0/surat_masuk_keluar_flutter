@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/disposisi_page.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_apppbar2.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
@@ -302,6 +303,33 @@ class _DetailSuratKeluarState extends State<DetailSuratKeluar> {
                   _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _buildAgendaInfo(),
+
+                  // Tombol Disposisi
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DisposisiPage(surat: _currentSurat),
+                        ),
+                      ).then((createdDisposisi) {
+                        if (createdDisposisi != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Disposisi berhasil dibuat'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.send),
+                    label: const Text('Disposisikan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
 
                   // Tombol untuk membuat agenda baru
                   if (_agenda == null) ...{

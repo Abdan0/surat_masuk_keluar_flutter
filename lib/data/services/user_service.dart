@@ -1,5 +1,9 @@
 // Login
 import 'dart:convert';
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
+import 'dart:math' as Math;
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,33 +16,254 @@ class ApiResponse {
   String? error;
 }
 
-// Get token
+// Mendapatkan token yang tersimpan
 Future<String> getToken() async {
   try {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-
     print('Attempting to get token from SharedPreferences');
-    print('Retrieved token: $token');
-
+    
+    // Cek semua kemungkinan kunci token yang tersimpan
+    String? token = prefs.getString('auth_token');
     if (token == null || token.isEmpty) {
-      throw Exception('Token tidak ditemukan');
+      token = prefs.getString('token');
     }
-
-    return token;
+    
+    // Pastikan token memiliki format yang benar (Bearer prefix)
+    if (token != null && token.isNotEmpty) {
+      if (!token.startsWith('Bearer ')) {
+        token = 'Bearer $token';
+      }
+      print('Token retrieved successfully: ${token.substring(0, Math.min(20, token.length))}...');
+      return token;
+    }
+    
+    print('⚠️ No token found in SharedPreferences');
+    return '';
   } catch (e) {
-    print('Error getting token: $e');
-    throw Exception('Token tidak ditemukan');
+    print('❌ Error getting token: $e');
+    return '';
   }
 }
 
-// Get user id
-Future<int?> getUserId() async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getInt('userId');
+// Refresh token jika sudah kedaluwarsa
+Future<bool> refreshToken() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final refreshToken = prefs.getString('refresh_token');
+    final currentToken = prefs.getString('auth_token') ?? '';
+    
+    print('🔄 Attempting to refresh token...');
+    print('🔑 Current token: ${currentToken.length > 20 ? currentToken.substring(0, 20) + '...' : currentToken}');
+    
+    if (refreshToken == null || refreshToken.isEmpty) {
+      print('❌ No refresh token available');
+      
+      // Jika tidak ada refresh token tapi masih ada access token, coba gunakan token yang ada
+      if (currentToken.isNotEmpty) {
+        print('⚠️ No refresh token, but access token exists. Continuing with current token.');
+        return true;
+      }
+      
+      return false;
+    }
+    
+    final response = await http.post(
+      Uri.parse('$apiURL/refresh-token'), // Sesuaikan dengan endpoint refresh token API Anda
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $refreshToken',
+      },
+    );
+    
+    print('📊 Refresh token response status: ${response.statusCode}');
+    
+    if (response.statusCode == 200) {
+      final responseData = json.decode(response.body);
+      final newToken = responseData['access_token'];
+      final newRefreshToken = responseData['refresh_token']; // Jika API mengembalikan refresh token baru
+      
+      if (newToken != null) {
+        await prefs.setString('auth_token', 'Bearer $newToken');
+        print('✅ Access token refreshed successfully');
+        
+        // Simpan refresh token baru jika ada
+        if (newRefreshToken != null) {
+          await prefs.setString('refresh_token', newRefreshToken);
+          print('✅ Refresh token updated');
+        }
+        
+        return true;
+      }
+    }
+    
+    print('❌ Failed to refresh token: ${response.statusCode}');
+    return false;
+  } catch (e) {
+    print('❌ Error refreshing token: $e');
+    return false;
+  }
 }
 
-// Login
+// Token interceptor untuk menangani 401 Unauthorized
+Future<http.Response> authorizedRequest(
+  Future<http.Response> Function() requestFunction
+) async {
+  try {
+    var response = await requestFunction();
+    
+    // Jika token expired, coba refresh dan coba lagi
+    if (response.statusCode == 401) {
+      print('⚠️ Token expired, attempting to refresh...');
+      final refreshed = await refreshToken();
+      
+      if (refreshed) {
+        // Coba lagi request dengan token baru
+        response = await requestFunction();
+      } else {
+        // Jika refresh gagal, logout user
+        await logout();
+      }
+    }
+    
+    return response;
+  } catch (e) {
+    rethrow;
+  }
+}
+
+// Get user ID from token
+Future<int> getUserId() async {
+  try {
+    print('🔍 Mencoba mendapatkan User ID...');
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Coba ambil dari SharedPreferences
+    final userDataString = prefs.getString('user_data');
+    if (userDataString != null) {
+      final userData = json.decode(userDataString);
+      if (userData != null && userData['id'] != null) {
+        final userId = int.tryParse(userData['id'].toString()) ?? 0;
+        print('✅ User ID dari SharedPreferences: $userId');
+        if (userId > 0) {
+          return userId;
+        }
+      }
+    }
+    
+    // Jika tidak ada di SharedPreferences, coba ambil dari token JWT
+    final token = await getToken();
+    if (token.isNotEmpty) {
+      // Extract payload from JWT token (format: "Bearer eyJ...")
+      try {
+        final jwt = token.startsWith('Bearer ') ? token.substring(7) : token;
+        final parts = jwt.split('.');
+        if (parts.length == 3) {
+          // Decode base64 payload
+          final payload = parts[1];
+          final normalized = base64.normalize(payload);
+          final decoded = utf8.decode(base64.decode(normalized));
+          final payloadData = json.decode(decoded);
+          
+          // JWT biasanya menyimpan user ID di field 'sub'
+          if (payloadData['sub'] != null) {
+            final userId = int.tryParse(payloadData['sub'].toString()) ?? 0;
+            print('✅ User ID dari JWT token: $userId');
+            
+            // Simpan user ID untuk penggunaan di masa depan
+            if (userId > 0) {
+              await saveUserId(userId);
+              return userId;
+            }
+          }
+        }
+      } catch (e) {
+          print('❌ Error decoding JWT: $e');
+      }
+        
+      // Jika gagal ekstrak dari token, coba api /user
+      try {
+        print('🔍 Mengambil user data dari API...');
+        final response = await http.get(
+          Uri.parse('$apiURL/user'),
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': token,
+          },
+        );
+        
+        if (response.statusCode == 200) {
+          final responseData = json.decode(response.body);
+          if (responseData['data'] != null && responseData['data']['id'] != null) {
+            final userId = int.tryParse(responseData['data']['id'].toString()) ?? 0;
+            print('✅ User ID dari API: $userId');
+            
+            // Simpan user data untuk penggunaan di masa depan
+            if (userId > 0) {
+              await prefs.setString('user_data', json.encode(responseData['data']));
+              return userId;
+            }
+          }
+        } else {
+          print('❌ API response error: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('❌ Error getting user from API: $e');
+      }
+    }
+    
+    // Jika masih tidak dapat mendapatkan user ID yang valid, coba dari fallback
+    final fallbackId = await _getFallbackUserId();
+    if (fallbackId > 0) {
+      return fallbackId;
+    }
+    
+    print('❌ User ID not found in storage or API');
+    throw Exception('User ID tidak ditemukan. Silakan login kembali.');
+  } catch (e) {
+    print('❌ Error getting user ID: $e');
+    throw Exception('Gagal mendapatkan User ID: $e');
+  }
+}
+
+// Fungsi untuk menyimpan user ID
+Future<void> saveUserId(int userId) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('user_id', userId);
+    print('✅ User ID $userId disimpan ke SharedPreferences');
+  } catch (e) {
+    print('❌ Error saving user ID: $e');
+  }
+}
+
+// Fungsi untuk mencoba mendapatkan user ID dari fallback storage
+Future<int> _getFallbackUserId() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id') ?? 0;
+    if (userId > 0) {
+      print('✅ User ID dari fallback storage: $userId');
+      return userId;
+    }
+    
+    // Jika masih tidak ada, coba ambil dari cache lain
+    final cachedId = prefs.getString('cached_user_id');
+    if (cachedId != null) {
+      final userId = int.tryParse(cachedId) ?? 0;
+      if (userId > 0) {
+        print('✅ User ID dari cache lain: $userId');
+        return userId;
+      }
+    }
+    
+    return 0;
+  } catch (e) {
+    print('❌ Error getting fallback user ID: $e');
+    return 0;
+  }
+}
+
+// Login function
 Future<ApiResponse> login(String nidn, String password) async {
   ApiResponse apiResponse = ApiResponse();
   try {
@@ -56,7 +281,7 @@ Future<ApiResponse> login(String nidn, String password) async {
     if (loginResponse.statusCode == 200) {
       final responseData = jsonDecode(loginResponse.body);
 
-      // Simpan token
+      // Simpan token dengan format dan kunci yang konsisten
       final token = responseData['token'];
       print('Token from response: $token');
 
@@ -64,13 +289,14 @@ Future<ApiResponse> login(String nidn, String password) async {
         final prefs = await SharedPreferences.getInstance();
         final bearerToken = 'Bearer $token';
 
-        // Simpan token
+        // Simpan token dengan kedua kunci untuk kompatibilitas
+        await prefs.setString('auth_token', bearerToken);
         await prefs.setString('token', bearerToken);
-        print('Token saved to SharedPreferences: $bearerToken');
+        print('Token saved to SharedPreferences with both keys');
 
         // Verifikasi token tersimpan
-        final verifyToken = prefs.getString('token');
-        print('Verified token in SharedPreferences: $verifyToken');
+        final verifyToken = await getToken();
+        print('Verified token from getToken(): ${verifyToken.length > 20 ? verifyToken.substring(0, 20) + '...' : verifyToken}');
 
         // Langsung gunakan data dari respons login jika tersedia
         // atau buat request baru untuk mendapatkan profil user jika tidak tersedia
@@ -223,23 +449,55 @@ Future<ApiResponse> getUserDetail() async {
   return apiResponse;
 }
 
-// Logout
+// Fungsi untuk menyimpan data user setelah login
+Future<bool> saveUserData(Map<String, dynamic> userData, String token) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Simpan token
+    await prefs.setString('auth_token', 'Bearer $token');
+    
+    // Simpan user data
+    await prefs.setString('user_data', json.encode(userData));
+    
+    print('✅ User data and token saved successfully');
+    return true;
+  } catch (e) {
+    print('❌ Error saving user data: $e');
+    return false;
+  }
+}
+
+// Fungsi untuk logout
 Future<bool> logout() async {
   try {
-    String token = await getToken();
-    final response = await http.post(
-      Uri.parse(logoutURL),
-      headers: {'Accept': 'application/json', 'Authorization': token},
-    );
-
-    if (response.statusCode == 200) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      return true;
+    // Hapus token dan user data dari SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token');
+    await prefs.remove('user_data');
+    await prefs.remove('user_id');
+    
+    // Panggil endpoint logout di API jika perlu
+    try {
+      final token = await getToken();
+      if (token.isNotEmpty) {
+        await http.post(
+          Uri.parse('$apiURL/logout'),
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': token,
+          },
+        );
+      }
+    } catch (apiError) {
+      print('⚠️ API logout error: $apiError');
+      // Tetap mengembalikan true meskipun API error,
+      // karena data lokal sudah dibersihkan
     }
-    return false;
+    
+    return true;
   } catch (e) {
-    print('Error during logout: $e');
+    print('❌ Error during logout: $e');
     return false;
   }
 }
@@ -253,5 +511,171 @@ Future<bool> isLoggedIn() async {
   } catch (e) {
     print('Error checking login status: $e');
     return false;
+  }
+}
+
+// Menyegarkan data user dari API
+Future<User?> refreshUserData() async {
+  try {
+    final token = await getToken();
+    if (token.isEmpty) {
+      print('❌ Token not available for user data refresh');
+      return null;
+    }
+    
+    // Debug token untuk membantu diagnosa masalah
+    print('🔑 Token format check: ${token.substring(0, 20)}...');
+    print('🔄 Refreshing user data from API...');
+    
+    // Coba endpoint /user terlebih dahulu
+    final endpoint = '$apiURL/user';
+    print('🔗 Trying endpoint: $endpoint');
+    
+    final response = await http.get(
+      Uri.parse(endpoint),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': token,
+      },
+    );
+    
+    if (response.statusCode == 200) {
+      final responseData = json.decode(response.body);
+      if (responseData['data'] != null) {
+        // Simpan user data di SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_data', json.encode(responseData['data']));
+        
+        print('✅ User data refreshed successfully');
+        // Return User object
+        return User.fromJson(responseData['data']);
+      }
+    } else if (response.statusCode == 404) {
+      // Jika endpoint tidak ditemukan, coba alternatif
+      print('⚠️ Endpoint /user not found, trying /me endpoint...');
+      
+      // Coba endpoint /me sebagai alternatif
+      final altEndpoint = '$apiURL/me';
+      print('🔗 Trying alternative endpoint: $altEndpoint');
+      
+      final altResponse = await http.get(
+        Uri.parse(altEndpoint),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': token,
+        },
+      );
+      
+      if (altResponse.statusCode == 200) {
+        final responseData = json.decode(altResponse.body);
+        if (responseData['data'] != null) {
+          // Simpan user data di SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_data', json.encode(responseData['data']));
+          
+          print('✅ User data refreshed successfully from alternative endpoint');
+          // Return User object
+          return User.fromJson(responseData['data']);
+        }
+      } else {
+        print('❌ Failed to refresh user data from alternative endpoint: ${altResponse.statusCode} - ${altResponse.body}');
+        
+        // Jika gagal mendapatkan data terbaru, gunakan data tersimpan
+        return await getUserData();
+      }
+    } else {
+      print('❌ Failed to refresh user data: ${response.statusCode} - ${response.body}');
+      
+      // Jika gagal mendapatkan data terbaru, gunakan data tersimpan
+      return await getUserData();
+    }
+    
+    // Jika tidak ada data yang berhasil diambil, ambil dari data login
+    print('⚠️ Attempting to get data from stored login information...');
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('name');
+    final role = prefs.getString('role');
+    final userId = prefs.getInt('userId');
+    final nidn = prefs.getString('nidn');
+    
+    if (name != null && name.isNotEmpty) {
+      print('✅ Created user from stored preferences');
+      return User(
+        id: userId,
+        name: name,
+        role: role,
+        nidn: nidn,
+      );
+    }
+    
+    return null;
+  } catch (e) {
+    print('❌ Error refreshing user data: $e');
+    return null;
+  }
+}
+
+// Mendapatkan data user dari penyimpanan lokal
+Future<User?> getUserData() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Cek apakah user data tersimpan di SharedPreferences
+    final userDataString = prefs.getString('user_data');
+    if (userDataString != null) {
+      // Parse JSON to User object
+      final userData = json.decode(userDataString);
+      print('✅ User data retrieved from SharedPreferences');
+      return User.fromJson(userData);
+    }
+    
+    // Jika tidak ada data user di SharedPreferences, cek data login terpisah
+    final name = prefs.getString('name');
+    final role = prefs.getString('role');
+    final userId = prefs.getInt('userId');
+    final nidn = prefs.getString('nidn');
+    
+    if (name != null && name.isNotEmpty) {
+      print('✅ Created user from stored login preferences');
+      return User(
+        id: userId,
+        name: name,
+        role: role,
+        nidn: nidn,
+      );
+    }
+    
+    // Jika tidak ada data tersimpan, coba refresh dari API
+    print('⚠️ No stored user data, attempting to refresh...');
+    return await refreshUserData();
+  } catch (e) {
+    print('❌ Error getting user data: $e');
+    return null;
+  }
+}
+
+// Fungsi fallback untuk mendapatkan data user minimal dari SharedPreferences
+Future<User?> getSimpleUserData() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('name');
+    final role = prefs.getString('role');
+    final userId = prefs.getInt('userId');
+    final nidn = prefs.getString('nidn');
+    
+    if (name != null && name.isNotEmpty) {
+      print('✅ Created minimal user object from preferences');
+      return User(
+        id: userId,
+        name: name,
+        role: role,
+        nidn: nidn,
+      );
+    }
+    
+    return null;
+  } catch (e) {
+    print('❌ Error getting simple user data: $e');
+    return null;
   }
 }
