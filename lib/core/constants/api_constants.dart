@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 // Hindari penggunaan duplikat /api/
-const baseURL = 'http://192.168.1.14:8000';
+const baseURL = 'http://192.168.1.12:8000';
 const apiURL = '$baseURL/api';
 
 const String loginURL = apiURL + '/login';

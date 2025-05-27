@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:surat_masuk_keluar_flutter/core/constants/api_constants.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
 import 'package:surat_masuk_keluar_flutter/data/models/user.dart';
@@ -21,6 +22,14 @@ class _LoginPageState extends State<LoginPage> {
   bool isChecked = false;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _passwordVisible = false; // Variabel untuk kontrol tampilan password
+
+  @override
+  void initState() {
+    super.initState();
+    // Cek apakah ada kredensial yang tersimpan
+    _loadSavedCredentials();
+  }
 
   @override
   void dispose() {
@@ -29,17 +38,64 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _showSnackBar(String message, bool isError) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? AppPallete.errorColor : AppPallete.successColor,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+  // Fungsi untuk memuat kredensial tersimpan
+  Future<void> _loadSavedCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedNidn = prefs.getString('saved_nidn');
+      final savedPassword = prefs.getString('saved_password');
+      final rememberMe = prefs.getBool('remember_me') ?? false;
+
+      if (savedNidn != null && savedPassword != null && rememberMe) {
+        setState(() {
+          nidnController.text = savedNidn;
+          passwordController.text = savedPassword;
+          isChecked = true;
+        });
+
+        // Auto login jika remember me aktif
+        _handleLogin(autoLogin: true);
+      }
+    } catch (e) {
+      print('Error loading saved credentials: $e');
+    }
   }
 
-  Future<void> _handleLogin() async {
+  // Fungsi untuk menyimpan kredensial
+  Future<void> _saveCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      if (isChecked) {
+        await prefs.setString('saved_nidn', nidnController.text);
+        await prefs.setString('saved_password', passwordController.text);
+        await prefs.setBool('remember_me', true);
+      } else {
+        // Hapus kredensial tersimpan jika remember me tidak dicentang
+        await prefs.remove('saved_nidn');
+        await prefs.remove('saved_password');
+        await prefs.setBool('remember_me', false);
+      }
+    } catch (e) {
+      print('Error saving credentials: $e');
+    }
+  }
+
+  void _showSnackBar(String message, bool isError) {
+    // Hanya tampilkan snackbar jika bukan auto login
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? AppPallete.errorColor : AppPallete.successColor,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  // Modifikasi _handleLogin untuk mendukung auto login
+  Future<void> _handleLogin({bool autoLogin = false}) async {
     // Validasi input
     if (nidnController.text.isEmpty) {
       setState(() => _errorMessage = emailRequired);
@@ -63,23 +119,37 @@ class _LoginPageState extends State<LoginPage> {
       // Cek response
       if (response.error != null) {
         setState(() => _errorMessage = response.error);
-        _showSnackBar(response.error!, true);
+        if (!autoLogin) {
+          _showSnackBar(response.error!, true);
+        }
       } else {
         // Login berhasil
         final user = response.data as User;
-        _showSnackBar('Selamat datang, ${user.name}', false);
+        
+        // Simpan kredensial jika remember me dicentang
+        await _saveCredentials();
+        
+        if (!autoLogin) {
+          _showSnackBar('Selamat datang, ${user.name}', false);
+        }
         
         // Navigasi ke home page
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const HomePage())
-        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context, 
+            MaterialPageRoute(builder: (context) => const HomePage())
+          );
+        }
       }
     } catch (e) {
       setState(() => _errorMessage = e.toString());
-      _showSnackBar(e.toString(), true);
+      if (!autoLogin) {
+        _showSnackBar(e.toString(), true);
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -175,16 +245,40 @@ class _LoginPageState extends State<LoginPage> {
                             obsecureText: false,
                         ),
     
-                        // Form Field Password
-                        const SizedBox(height: 15,),
-                        MyTextfield(
+                        // Form Field Password dengan toggle visibility
+                        const SizedBox(height: 15),
+                        TextField(
                           controller: passwordController,
-                          hintText: "Password",
-                          obsecureText: true,
+                          obscureText: !_passwordVisible,
+                          decoration: InputDecoration(
+                            hintText: 'Password',
+                            fillColor: Colors.grey.shade200,
+                            filled: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                // Ubah ikon berdasarkan status visibility
+                                _passwordVisible 
+                                    ? Icons.visibility 
+                                    : Icons.visibility_off,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                // Toggle visibility password
+                                setState(() {
+                                  _passwordVisible = !_passwordVisible;
+                                });
+                              },
+                            ),
+                          ),
                         ),
     
                         // Remember Me Check Box
-                        const SizedBox(height: 5.0,),
+                        const SizedBox(height: 5.0),
                         Row(
                           children: [
                             Checkbox(
@@ -204,12 +298,12 @@ class _LoginPageState extends State<LoginPage> {
                         ),
     
                         // Login Button
-                        const SizedBox(height: 15.0,),
+                        const SizedBox(height: 15.0),
                         _isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : MyButton2(
                               text: 'Sign In',
-                              onTap: _handleLogin,
+                              onTap: () => _handleLogin(),
                             )
                       ],
                     ),

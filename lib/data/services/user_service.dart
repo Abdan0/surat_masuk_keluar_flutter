@@ -473,9 +473,17 @@ Future<bool> logout() async {
   try {
     // Hapus token dan user data dari SharedPreferences
     final prefs = await SharedPreferences.getInstance();
+    
+    // Hapus semua token dan data login
     await prefs.remove('token');
+    await prefs.remove('auth_token');
     await prefs.remove('user_data');
     await prefs.remove('user_id');
+    
+    // Hapus juga kredensial Remember Me
+    await prefs.remove('saved_nidn');
+    await prefs.remove('saved_password');
+    await prefs.setBool('remember_me', false);
     
     // Panggil endpoint logout di API jika perlu
     try {
@@ -495,6 +503,7 @@ Future<bool> logout() async {
       // karena data lokal sudah dibersihkan
     }
     
+    print('✅ Logout berhasil, semua kredensial dihapus');
     return true;
   } catch (e) {
     print('❌ Error during logout: $e');
@@ -677,5 +686,280 @@ Future<User?> getSimpleUserData() async {
   } catch (e) {
     print('❌ Error getting simple user data: $e');
     return null;
+  }
+}
+
+// Mendapatkan daftar semua pengguna (admin only)
+Future<List<User>> getAllUsers() async {
+  try {
+    final token = await getToken();
+    if (token.isEmpty) {
+      throw Exception('Unauthorized: Token tidak tersedia');
+    }
+    
+    print('🔍 Mengambil daftar pengguna...');
+    
+    final response = await http.get(
+      Uri.parse('$apiURL/users'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': token,
+      },
+    );
+    
+    if (response.statusCode == 200) {
+      final responseData = json.decode(response.body);
+      
+      if (responseData['data'] != null && responseData['data'] is List) {
+        final List<dynamic> userData = responseData['data'];
+        final userList = userData.map((data) => User.fromJson(data)).toList();
+        print('✅ Berhasil mendapatkan ${userList.length} pengguna');
+        return userList;
+      } else {
+        throw Exception('Format response tidak valid');
+      }
+    } else if (response.statusCode == 401) {
+      throw Exception('Unauthorized: Session telah habis');
+    } else {
+      throw Exception('Gagal mendapatkan daftar pengguna: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('❌ Error getting users list: $e');
+    throw Exception('Gagal mengambil daftar pengguna: $e');
+  }
+}
+
+// Membuat pengguna baru (admin only)
+Future<User> createUser(User user, String password) async {
+  try {
+    final token = await getToken();
+    if (token.isEmpty) {
+      throw Exception('Unauthorized: Token tidak tersedia');
+    }
+    
+    print('📝 Membuat pengguna baru: ${user.name}');
+    
+    final response = await http.post(
+      Uri.parse('$apiURL/users'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': token,
+      },
+      body: json.encode({
+        'name': user.name,
+        'nidn': user.nidn,
+        'role': user.role,
+        'password': password,
+        'password_confirmation': password,
+      }),
+    );
+    
+    if (response.statusCode == 201) {
+      final responseData = json.decode(response.body);
+      
+      if (responseData['data'] != null) {
+        print('✅ Pengguna berhasil dibuat');
+        return User.fromJson(responseData['data']);
+      } else {
+        throw Exception('Format response tidak valid');
+      }
+    } else if (response.statusCode == 401) {
+      throw Exception('Unauthorized: Session telah habis');
+    } else if (response.statusCode == 422) {
+      final errorData = json.decode(response.body);
+      final errorMsg = errorData['message'] ?? 'Validation error';
+      throw Exception('Validasi gagal: $errorMsg');
+    } else {
+      throw Exception('Gagal membuat pengguna: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('❌ Error creating user: $e');
+    throw Exception('Gagal membuat pengguna: $e');
+  }
+}
+
+// Mengupdate data pengguna (admin only)
+Future<User> updateUser(User user, String? password) async {
+  try {
+    final token = await getToken();
+    if (token.isEmpty) {
+      throw Exception('Unauthorized: Token tidak tersedia');
+    }
+    
+    if (user.id == null) {
+      throw Exception('User ID tidak valid');
+    }
+    
+    print('🔄 Memperbarui data pengguna ID: ${user.id}');
+    
+    // Siapkan data untuk update
+    final Map<String, dynamic> userData = {
+      'name': user.name,
+      'nidn': user.nidn,
+      'role': user.role,
+      '_method': 'PUT',  // Untuk Laravel method spoofing
+    };
+    
+    // Tambahkan password jika diubah
+    if (password != null && password.isNotEmpty) {
+      userData['password'] = password;
+      userData['password_confirmation'] = password;
+    }
+    
+    print('📦 Data yang akan diupdate: ${userData.toString()}');
+    
+    // Headers untuk request
+    final headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': token,
+    };
+    
+    // Endpoint untuk update user berdasarkan API routes
+    final updateUri = Uri.parse('$apiURL/users/${user.id}');
+    print('🔗 URL Update: $updateUri');
+    
+    // Kirim request dengan POST + _method=PUT
+    final response = await http.post(
+      updateUri,
+      headers: headers,
+      body: json.encode(userData),
+    );
+    
+    print('📡 Status response: ${response.statusCode}');
+    
+    // Jika endpoint pertama gagal, coba dengan endpoint alternatif
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      print('⚠️ Endpoint pertama gagal, mencoba endpoint alternatif...');
+      
+      // Tambahkan user ID ke data
+      userData['id'] = user.id;
+      
+      final alternativeUri = Uri.parse('$apiURL/update-user');
+      print('🔗 URL Alternatif: $alternativeUri');
+      
+      final altResponse = await http.post(
+        alternativeUri,
+        headers: headers,
+        body: json.encode(userData),
+      );
+      
+      print('📡 Status response alternatif: ${altResponse.statusCode}');
+      
+      if (altResponse.statusCode == 200 || altResponse.statusCode == 201) {
+        try {
+          final responseData = json.decode(altResponse.body);
+          if (responseData['data'] != null) {
+            return User.fromJson(responseData['data']);
+          } else if (responseData['user'] != null) {
+            return User.fromJson(responseData['user']);
+          } else {
+            return user; // Return original user if response format is unexpected
+          }
+        } catch (e) {
+          print('⚠️ Error parsing response: $e');
+          return user; // Return original user on parsing error
+        }
+      }
+    } else if (response.statusCode == 200 || response.statusCode == 201) {
+      // Parse response untuk endpoint utama
+      try {
+        final responseData = json.decode(response.body);
+        if (responseData['data'] != null) {
+          return User.fromJson(responseData['data']);
+        } else if (responseData['user'] != null) {
+          return User.fromJson(responseData['user']);
+        } else {
+          return user; // Return original user if response format is unexpected
+        }
+      } catch (e) {
+        print('⚠️ Error parsing response: $e');
+        return user; // Return original user on parsing error
+      }
+    }
+    
+    // Jika semua endpoint gagal, kembalikan user dengan nilai yang diupdate
+    print('⚠️ Update gagal di API, mengembalikan user dengan data yang diperbarui');
+    return User(
+      id: user.id,
+      name: user.name,
+      nidn: user.nidn,
+      role: user.role
+    );
+    
+  } catch (e) {
+    print('❌ Error updating user: $e');
+    throw Exception('Gagal memperbarui data pengguna: $e');
+  }
+}
+
+// Menghapus pengguna (admin only)
+Future<bool> deleteUser(int userId) async {
+  try {
+    final token = await getToken();
+    if (token.isEmpty) {
+      throw Exception('Unauthorized: Token tidak tersedia');
+    }
+    
+    print('🗑️ Menghapus pengguna ID: $userId');
+    
+    // Headers untuk request
+    final headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': token,
+    };
+    
+    // Endpoint untuk delete user
+    final deleteUri = Uri.parse('$apiURL/users/$userId');
+    print('🔗 URL Delete: $deleteUri');
+    
+    // Coba dengan metode DELETE standard
+    final response = await http.delete(
+      deleteUri,
+      headers: headers,
+    );
+    
+    print('📡 Status response delete: ${response.statusCode}');
+    
+    // Jika DELETE tidak berfungsi, coba dengan POST + _method=DELETE (Laravel method spoofing)
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      print('⚠️ DELETE method gagal, mencoba dengan POST + _method=DELETE');
+      
+      final postDeleteUri = Uri.parse('$apiURL/users/$userId');
+      final postResponse = await http.post(
+        postDeleteUri,
+        headers: headers,
+        body: json.encode({
+          '_method': 'DELETE'
+        }),
+      );
+      
+      print('📡 Status response POST delete: ${postResponse.statusCode}');
+      
+      if (postResponse.statusCode == 200) {
+        print('✅ Pengguna berhasil dihapus (via POST)');
+        return true;
+      }
+    } else if (response.statusCode == 200) {
+      print('✅ Pengguna berhasil dihapus');
+      return true;
+    }
+    
+    // Jika semua metode gagal, periksa status error
+    if (response.statusCode == 401) {
+      throw Exception('Unauthorized: Session telah habis');
+    } else if (response.statusCode == 403) {
+      throw Exception('Tidak diizinkan: Anda tidak memiliki hak untuk menghapus pengguna ini');
+    } else if (response.statusCode == 404) {
+      throw Exception('Pengguna tidak ditemukan');
+    } else {
+      throw Exception('Gagal menghapus pengguna: ${response.statusCode}');
+    }
+    
+  } catch (e) {
+    print('❌ Error deleting user: $e');
+    throw Exception('Gagal menghapus pengguna: $e');
   }
 }

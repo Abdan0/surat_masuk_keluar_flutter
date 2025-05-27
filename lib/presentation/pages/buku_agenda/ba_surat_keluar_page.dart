@@ -179,8 +179,9 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
       return agendaList; // No filter applied
     }
     
-    // Mencatat jumlah agenda sebelum filter
+    // Log jumlah agenda sebelum filter
     final beforeCount = agendaList.length;
+    print('📊 Jumlah agenda sebelum filter: $beforeCount');
     
     // Menormalkan waktu untuk perbandingan yang adil
     final normalizedStartDate = _startDate != null 
@@ -191,67 +192,84 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
         ? DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59) 
         : null;
     
+    // Detail filter untuk debugging
+    if (normalizedStartDate != null) {
+      print('🔍 Filter dari tanggal: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(normalizedStartDate)}');
+    } else {
+      print('🔍 Tanggal awal tidak diatur');
+    }
+    
+    if (normalizedEndDate != null) {
+      print('🔍 Filter sampai tanggal: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(normalizedEndDate)}');
+    } else {
+      print('🔍 Tanggal akhir tidak diatur');
+    }
+    
+    // Filter agenda berdasarkan tanggal
     final filteredList = agendaList.where((agenda) {
-      // Normalisasi tanggal agenda juga
+      // Debug data agenda
+      print('👉 Memeriksa agenda: ${agenda.nomorAgenda}');
+      print('   Tanggal agenda: ${DateFormat('yyyy-MM-dd').format(agenda.tanggalAgenda)}');
+      
+      // Normalisasi tanggal agenda untuk perbandingan yang adil
       final agendaDate = DateTime(
         agenda.tanggalAgenda.year,
         agenda.tanggalAgenda.month,
         agenda.tanggalAgenda.day,
       );
       
-      // Debug untuk memeriksa pembandingan tanggal
-      if (normalizedStartDate != null || normalizedEndDate != null) {
-        print('🗓️ Periksa agenda ${agenda.nomorAgenda} tanggal ${DateFormat('dd/MM/yyyy').format(agenda.tanggalAgenda)}');
-      }
-      
       // Apply start date filter
       if (normalizedStartDate != null) {
         final isAfterStart = agendaDate.isAtSameMomentAs(normalizedStartDate) || 
-                            agendaDate.isAfter(normalizedStartDate);
-        if (!isAfterStart) {
-          print('❌ Agenda ${agenda.nomorAgenda} sebelum tanggal mulai');
-          return false;
-        }
+                           agendaDate.isAfter(normalizedStartDate);
+        print('   ✓ Agenda setelah tanggal mulai? $isAfterStart');
+        if (!isAfterStart) return false;
       }
       
       // Apply end date filter
       if (normalizedEndDate != null) {
         final isBeforeEnd = agendaDate.isAtSameMomentAs(normalizedEndDate) || 
-                           agendaDate.isBefore(normalizedEndDate);
-        if (!isBeforeEnd) {
-          print('❌ Agenda ${agenda.nomorAgenda} setelah tanggal akhir');
-          return false;
-        }
+                          agendaDate.isBefore(normalizedEndDate);
+        print('   ✓ Agenda sebelum tanggal akhir? $isBeforeEnd');
+        if (!isBeforeEnd) return false;
       }
       
-      print('✅ Agenda ${agenda.nomorAgenda} dalam rentang tanggal filter');
+      // Jika lolos semua filter
+      print('   ✅ Agenda diterima dalam filter');
       return true;
     }).toList();
     
-    // Mencatat jumlah agenda setelah filter
-    print('📊 Filter tanggal: ${beforeCount} agenda → ${filteredList.length} agenda');
-    
+    // Log hasil filter
+    print('📊 Jumlah agenda setelah filter: ${filteredList.length}');
     return filteredList;
   }
 
   // Handle filter button click
   void _handleFilter() {
-    // Parse tanggal dengan mempertimbangkan format yang benar
+    print('🔍 Memulai filter dengan input:');
+    print('  Dari: ${_startDateController.text}');
+    print('  Sampai: ${_endDateController.text}');
+    
+    // Parse input tanggal
     _startDate = _parseDateInput(_startDateController.text);
     _endDate = _parseDateInput(_endDateController.text);
     
-    // Debug untuk melihat tanggal yang dipilih
     if (_startDate != null) {
-      print('🔍 Filter tanggal mulai: ${DateFormat('dd/MM/yyyy').format(_startDate!)}');
+      print('✓ Tanggal mulai diset: ${DateFormat('dd/MM/yyyy').format(_startDate!)}');
     } else {
-      print('🔍 Filter tanggal mulai: tidak diatur');
+      print('⚠️ Tanggal mulai kosong atau tidak valid');
     }
     
     if (_endDate != null) {
-      print('🔍 Filter tanggal akhir: ${DateFormat('dd/MM/yyyy').format(_endDate!)}');
+      print('✓ Tanggal akhir diset: ${DateFormat('dd/MM/yyyy').format(_endDate!)}');
     } else {
-      print('🔍 Filter tanggal akhir: tidak diatur');
+      print('⚠️ Tanggal akhir kosong atau tidak valid');
     }
+    
+    // Pastikan bahwa filter tanggal benar-benar diterapkan
+    setState(() {
+      // Force refresh dengan state baru
+    });
     
     // Reload data dengan filter baru
     _loadAgendaSuratKeluar();
@@ -262,25 +280,25 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
     if (date.isEmpty) return null;
     
     try {
-      // Coba parse dengan format dd/MM/yyyy
+      // Format tanggal yang digunakan dalam aplikasi adalah dd/MM/yyyy
+      final parts = date.split('/');
+      if (parts.length == 3) {
+        final day = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        final year = int.parse(parts[2]);
+        
+        // Validasi tanggal
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900) {
+          print('✓ Berhasil parse tanggal: $day/$month/$year');
+          return DateTime(year, month, day);
+        }
+      }
+      
+      // Jika format dd/MM/yyyy tidak berhasil, coba dengan DateFormat
       final DateFormat formatter = DateFormat('dd/MM/yyyy');
       return formatter.parse(date);
     } catch (e) {
-      // Jika gagal, coba parse dengan format alternatif
-      try {
-        final parts = date.split('/');
-        if (parts.length == 3) {
-          return DateTime(
-            int.parse(parts[2]), // year
-            int.parse(parts[1]), // month
-            int.parse(parts[0]), // day
-          );
-        }
-      } catch (e2) {
-        print('Error parsing date: $e2');
-      }
-      
-      print('Error parsing date: $e');
+      print('❌ Error parsing tanggal: $date, error: $e');
       return null;
     }
   }
@@ -416,6 +434,13 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
                               controller: _startDateController,
                               label: 'Dari Tanggal',
                               hintText: 'Tanggal Mulai',
+                              onDateSelected: () {
+                                // Parse tanggal secara otomatis saat user memilih
+                                setState(() {
+                                  _startDate = _parseDateInput(_startDateController.text);
+                                });
+                                print('🗓️ Tanggal mulai diset: ${_startDateController.text} -> $_startDate');
+                              },
                             ),
                           ),
                           
@@ -426,6 +451,13 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
                               controller: _endDateController,
                               label: 'Sampai Tanggal',
                               hintText: 'Tanggal Akhir',
+                              onDateSelected: () {
+                                // Parse tanggal secara otomatis saat user memilih
+                                setState(() {
+                                  _endDate = _parseDateInput(_endDateController.text);
+                                });
+                                print('🗓️ Tanggal akhir diset: ${_endDateController.text} -> $_endDate');
+                              },
                             ),
                           ),
                         ],
@@ -456,6 +488,23 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
                             ),
                           ),
                         ],
+                      ),
+                      
+                      const SizedBox(height: 8),
+                      
+                      // Di bawah tombol Filter dan Cetak, tambahkan tombol reset
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _startDateController.clear();
+                            _endDateController.clear();
+                            _startDate = null;
+                            _endDate = null;
+                          });
+                          _loadAgendaSuratKeluar();
+                        },
+                        tooltip: 'Reset Filter',
+                        icon: const Icon(Icons.clear_all),
                       ),
                     ],
                   ),

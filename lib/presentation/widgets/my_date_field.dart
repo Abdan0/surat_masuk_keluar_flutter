@@ -78,8 +78,8 @@ class MyDateField extends StatelessWidget {
             ),
           ),
           onTap: () async {
-            // Gunakan format tanggal yang konsisten
-            final DateFormat formatter = DateFormat('yyyy-MM-dd');
+            // Pastikan format tanggal konsisten: dd/MM/yyyy
+            final DateFormat formatter = DateFormat('dd/MM/yyyy');
             
             // Parse tanggal awal jika ada
             DateTime initialDate = DateTime.now();
