@@ -739,40 +739,99 @@ Future<User> createUser(User user, String password) async {
     
     print('📝 Membuat pengguna baru: ${user.name}');
     
-    final response = await http.post(
-      Uri.parse('$apiURL/users'),
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': token,
-      },
-      body: json.encode({
-        'name': user.name,
-        'nidn': user.nidn,
-        'role': user.role,
-        'password': password,
-        'password_confirmation': password,
-      }),
-    );
+    // Coba beberapa kemungkinan endpoint dan format data
+    List<String> possibleEndpoints = [
+      '$apiURL/users',             // Endpoint standar
+      '$apiURL/register',          // Alternatif 1
+      '$apiURL/user',              // Alternatif 2
+      '$baseURL/api/register-user' // Alternatif 3
+    ];
     
-    if (response.statusCode == 201) {
-      final responseData = json.decode(response.body);
-      
-      if (responseData['data'] != null) {
-        print('✅ Pengguna berhasil dibuat');
-        return User.fromJson(responseData['data']);
-      } else {
-        throw Exception('Format response tidak valid');
+    Exception? lastError;
+    
+    // Coba semua endpoint yang mungkin
+    for (String endpoint in possibleEndpoints) {
+      try {
+        print('🔄 Mencoba endpoint: $endpoint');
+        
+        // Format JSON
+        final response = await http.post(
+          Uri.parse(endpoint),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': token,
+          },
+          body: json.encode({
+            'name': user.name,
+            'nidn': user.nidn,
+            'role': user.role,
+            'password': password,
+            'password_confirmation': password,
+          }),
+        );
+        
+        print('📊 Response dari $endpoint: ${response.statusCode}');
+        
+        if (response.statusCode == 201 || response.statusCode == 200) {
+          final responseData = json.decode(response.body);
+          
+          // Coba ekstrak data dengan beberapa format yang mungkin
+          if (responseData['data'] != null) {
+            print('✅ Pengguna berhasil dibuat via $endpoint');
+            return User.fromJson(responseData['data']);
+          } else if (responseData['user'] != null) {
+            print('✅ Pengguna berhasil dibuat via $endpoint (format user)');
+            return User.fromJson(responseData['user']);
+          } else {
+            // Buat User dari data respons langsung jika tidak ada struktur bersarang
+            print('✅ Pengguna berhasil dibuat via $endpoint (format langsung)');
+            return User.fromJson(responseData);
+          }
+        }
+        
+        // Jika masih error 405, coba dengan format form urlencoded
+        if (response.statusCode == 405) {
+          print('🔄 Mencoba dengan format form-urlencoded di $endpoint');
+          
+          final formResponse = await http.post(
+            Uri.parse(endpoint),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Authorization': token,
+            },
+            body: {
+              'name': user.name,
+              'nidn': user.nidn,
+              'role': user.role,
+              'password': password,
+              'password_confirmation': password,
+            },
+          );
+          
+          if (formResponse.statusCode == 201 || formResponse.statusCode == 200) {
+            final formData = json.decode(formResponse.body);
+            print('✅ Pengguna berhasil dibuat via form-urlencoded di $endpoint');
+            
+            if (formData['data'] != null) {
+              return User.fromJson(formData['data']);
+            } else if (formData['user'] != null) {
+              return User.fromJson(formData['user']);
+            } else {
+              return User.fromJson(formData);
+            }
+          }
+        }
+      } catch (e) {
+        lastError = Exception('Error pada endpoint $endpoint: $e');
+        continue; // Coba endpoint berikutnya
       }
-    } else if (response.statusCode == 401) {
-      throw Exception('Unauthorized: Session telah habis');
-    } else if (response.statusCode == 422) {
-      final errorData = json.decode(response.body);
-      final errorMsg = errorData['message'] ?? 'Validation error';
-      throw Exception('Validasi gagal: $errorMsg');
-    } else {
-      throw Exception('Gagal membuat pengguna: ${response.statusCode}');
     }
+    
+    // Jika semua endpoint gagal
+    throw lastError ?? Exception('Semua endpoint gagal diakses');
+    
   } catch (e) {
     print('❌ Error creating user: $e');
     throw Exception('Gagal membuat pengguna: $e');
@@ -782,112 +841,113 @@ Future<User> createUser(User user, String password) async {
 // Mengupdate data pengguna (admin only)
 Future<User> updateUser(User user, String? password) async {
   try {
+    // Debug info
+    print('ℹ️ Updating user with data:');
+    print('- ID: ${user.id}');
+    print('- Name: ${user.name}');
+    print('- NIDN: ${user.nidn}');
+    print('- Role: ${user.role}');
+    print('- Has Password: ${password != null && password.isNotEmpty}');
+    
     final token = await getToken();
     if (token.isEmpty) {
       throw Exception('Unauthorized: Token tidak tersedia');
     }
     
-    if (user.id == null) {
-      throw Exception('User ID tidak valid');
-    }
-    
-    print('🔄 Memperbarui data pengguna ID: ${user.id}');
-    
-    // Siapkan data untuk update
-    final Map<String, dynamic> userData = {
-      'name': user.name,
-      'nidn': user.nidn,
-      'role': user.role,
-      '_method': 'PUT',  // Untuk Laravel method spoofing
-    };
-    
-    // Tambahkan password jika diubah
-    if (password != null && password.isNotEmpty) {
-      userData['password'] = password;
-      userData['password_confirmation'] = password;
-    }
-    
-    print('📦 Data yang akan diupdate: ${userData.toString()}');
-    
-    // Headers untuk request
-    final headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Authorization': token,
-    };
-    
-    // Endpoint untuk update user berdasarkan API routes
-    final updateUri = Uri.parse('$apiURL/users/${user.id}');
-    print('🔗 URL Update: $updateUri');
-    
-    // Kirim request dengan POST + _method=PUT
-    final response = await http.post(
-      updateUri,
-      headers: headers,
-      body: json.encode(userData),
-    );
-    
-    print('📡 Status response: ${response.statusCode}');
-    
-    // Jika endpoint pertama gagal, coba dengan endpoint alternatif
-    if (response.statusCode == 404 || response.statusCode == 405) {
-      print('⚠️ Endpoint pertama gagal, mencoba endpoint alternatif...');
-      
-      // Tambahkan user ID ke data
-      userData['id'] = user.id;
-      
-      final alternativeUri = Uri.parse('$apiURL/update-user');
-      print('🔗 URL Alternatif: $alternativeUri');
-      
-      final altResponse = await http.post(
-        alternativeUri,
-        headers: headers,
-        body: json.encode(userData),
+    // Mencoba berbagai metode dan endpoint
+    // Metode 1: PUT ke /users/{id}
+    try {
+      print('🔄 Trying update method 1: PUT to /users/${user.id}');
+      final response = await http.put(
+        Uri.parse('$apiURL/users/${user.id}'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': token,
+        },
+        body: json.encode({
+          'name': user.name,
+          'nidn': user.nidn,
+          'role': user.role == 'wakil_dekan' ? 'wakil dekan' : user.role, // Konversi format
+          if (password != null && password.isNotEmpty) 'password': password,
+        }),
       );
       
-      print('📡 Status response alternatif: ${altResponse.statusCode}');
+      print('📊 Method 1 response: ${response.statusCode} - ${response.body}');
       
-      if (altResponse.statusCode == 200 || altResponse.statusCode == 201) {
-        try {
-          final responseData = json.decode(altResponse.body);
-          if (responseData['data'] != null) {
-            return User.fromJson(responseData['data']);
-          } else if (responseData['user'] != null) {
-            return User.fromJson(responseData['user']);
-          } else {
-            return user; // Return original user if response format is unexpected
-          }
-        } catch (e) {
-          print('⚠️ Error parsing response: $e');
-          return user; // Return original user on parsing error
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['data'] != null) {
+          return User.fromJson(data['data']);
         }
       }
-    } else if (response.statusCode == 200 || response.statusCode == 201) {
-      // Parse response untuk endpoint utama
-      try {
-        final responseData = json.decode(response.body);
-        if (responseData['data'] != null) {
-          return User.fromJson(responseData['data']);
-        } else if (responseData['user'] != null) {
-          return User.fromJson(responseData['user']);
-        } else {
-          return user; // Return original user if response format is unexpected
-        }
-      } catch (e) {
-        print('⚠️ Error parsing response: $e');
-        return user; // Return original user on parsing error
-      }
+    } catch (e) {
+      print('❌ Method 1 failed: $e');
     }
     
-    // Jika semua endpoint gagal, kembalikan user dengan nilai yang diupdate
-    print('⚠️ Update gagal di API, mengembalikan user dengan data yang diperbarui');
-    return User(
-      id: user.id,
-      name: user.name,
-      nidn: user.nidn,
-      role: user.role
-    );
+    // Metode 2: POST ke /users/{id}
+    try {
+      print('🔄 Trying update method 2: POST to /users/${user.id}');
+      final response = await http.post(
+        Uri.parse('$apiURL/users/${user.id}'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': token,
+        },
+        body: json.encode({
+          'name': user.name,
+          'nidn': user.nidn,
+          'role': user.role == 'wakil_dekan' ? 'wakil dekan' : user.role,
+          if (password != null && password.isNotEmpty) 'password': password,
+        }),
+      );
+      
+      print('📊 Method 2 response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['data'] != null) {
+          return User.fromJson(data['data']);
+        }
+      }
+    } catch (e) {
+      print('❌ Method 2 failed: $e');
+    }
     
+    // Metode 3: POST ke /update-user
+    try {
+      print('🔄 Trying update method 3: POST to /update-user');
+      final response = await http.post(
+        Uri.parse('$apiURL/update-user'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': token,
+        },
+        body: json.encode({
+          'id': user.id,
+          'name': user.name,
+          'nidn': user.nidn,
+          'role': user.role == 'wakil_dekan' ? 'wakil dekan' : user.role,
+          if (password != null && password.isNotEmpty) 'password': password,
+        }),
+      );
+      
+      print('📊 Method 3 response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['data'] != null) {
+          return User.fromJson(data['data']);
+        }
+      }
+    } catch (e) {
+      print('❌ Method 3 failed: $e');
+    }
+    
+    // Semua metode gagal
+    throw Exception('Gagal update user setelah mencoba semua metode');
   } catch (e) {
     print('❌ Error updating user: $e');
     throw Exception('Gagal memperbarui data pengguna: $e');

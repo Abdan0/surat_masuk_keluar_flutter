@@ -28,6 +28,10 @@ class _EditUserPageState extends State<EditUserPage> {
   String? _error;
   bool _changePassword = false;
   
+  // Tambahkan state baru untuk toggle visibility
+  bool _passwordVisible = false;
+  bool _confirmPasswordVisible = false;
+  
   final List<String> _roles = ['admin', 'dekan', 'wakil_dekan', 'staff'];
 
   @override
@@ -150,6 +154,12 @@ class _EditUserPageState extends State<EditUserPage> {
 
   // Tambahkan fungsi update langsung ini di _EditUserPageState
   Future<bool> _directUpdateUser() async {
+    // Set loading state
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
     try {
       final token = await UserService.getToken();
       if (token.isEmpty) {
@@ -158,10 +168,11 @@ class _EditUserPageState extends State<EditUserPage> {
       
       // Siapkan data user untuk update
       final Map<String, dynamic> userData = {
-        'id': widget.user.id.toString(), // Konversi ke string untuk form data
+        'id': widget.user.id.toString(),
         'name': _nameController.text,
         'nidn': _nidnController.text,
         'role': _selectedRole,
+        '_method': 'PUT', // Laravel method spoofing
       };
       
       // Tambahkan password jika diubah
@@ -172,61 +183,60 @@ class _EditUserPageState extends State<EditUserPage> {
       
       print('🚀 Mencoba direct update: $userData');
       
-      // Konfigurasi header yang tepat untuk content type
-      final headers = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': token,
-      };
+      // Coba endpoint update-user - ini yang paling besar kemungkinan berhasil
+      final updateEndpoint = 'http://192.168.1.10:8000/api/update-user'; // Pastikan ini IP yang benar
       
-      // Coba semua kemungkinan endpoint
-      final endpoints = [
-        '/api/users/${widget.user.id}', 
-        '/api/update-user',
-        '/api/user/update',
-        '/api/users/update/${widget.user.id}'
-      ];
+      print('🔗 Mencoba endpoint: $updateEndpoint');
       
-      for (final endpoint in endpoints) {
-        final uri = Uri.parse('http://192.168.1.12:8000$endpoint');
-        print('🔗 Mencoba endpoint: $uri');
-        
-        // Kirim sebagai form data dengan method POST
-        final encodedBody = userData.entries
-          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}')
-          .join('&');
-        
-        final response = await http.post(
-          uri,
-          headers: headers,
-          body: encodedBody,
-        );
-        
-        print('📡 Response: ${response.statusCode} - ${response.body}');
-        
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          print('✅ Update berhasil via $endpoint');
-          return true;
+      final response = await http.post(
+        Uri.parse(updateEndpoint),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': token,
+        },
+        body: Uri(queryParameters: userData).query,
+      );
+      
+      print('📡 Response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Update berhasil, tampilkan pesan sukses
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Data pengguna berhasil diperbarui'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Set loading state
+          setState(() {
+            _isLoading = false;
+          });
+          
+          // Kembali ke halaman sebelumnya
+          Navigator.pop(context, true);
         }
+        return true;
+      } else {
+        throw Exception('Status code: ${response.statusCode}');
       }
-      
-      // Semua endpoint gagal, coba alternatif terakhir dengan method GET + query params
-      final fallbackUri = Uri.parse('http://192.168.1.12:8000/api/update-user').replace(
-        queryParameters: userData
-      );
-      
-      print('🔗 Mencoba fallback GET: $fallbackUri');
-      final getResponse = await http.get(
-        fallbackUri,
-        headers: {'Accept': 'application/json', 'Authorization': token},
-      );
-      
-      print('📡 GET Response: ${getResponse.statusCode}');
-      
-      return getResponse.statusCode == 200 || getResponse.statusCode == 201;
-      
     } catch (e) {
       print('❌ Error in direct update: $e');
+      
+      setState(() {
+        _isLoading = false;
+        _error = 'Gagal update pengguna: $e';
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memperbarui data: $_error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      
       return false;
     }
   }
@@ -471,11 +481,24 @@ class _EditUserPageState extends State<EditUserPage> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
-                    obscureText: true,
+                    obscureText: !_passwordVisible, // Gunakan negasi dari _passwordVisible
                     decoration: InputDecoration(
                       labelText: 'Password Baru',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
+                      ),
+                      // Tambahkan suffix icon untuk toggle visibility
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _passwordVisible ? Icons.visibility_off : Icons.visibility,
+                          color: Theme.of(context).primaryColorDark,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _passwordVisible = !_passwordVisible;
+                          });
+                        },
+                        tooltip: _passwordVisible ? 'Sembunyikan password' : 'Tampilkan password',
                       ),
                     ),
                     validator: (value) {
@@ -493,11 +516,24 @@ class _EditUserPageState extends State<EditUserPage> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordConfirmController,
-                    obscureText: true,
+                    obscureText: !_confirmPasswordVisible, // Gunakan negasi dari _confirmPasswordVisible
                     decoration: InputDecoration(
                       labelText: 'Konfirmasi Password Baru',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
+                      ),
+                      // Tambahkan suffix icon untuk toggle visibility
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _confirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                          color: Theme.of(context).primaryColorDark,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _confirmPasswordVisible = !_confirmPasswordVisible;
+                          });
+                        },
+                        tooltip: _confirmPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password',
                       ),
                     ),
                     validator: (value) {

@@ -217,8 +217,8 @@ class _DetailSuratKeluarState extends State<DetailSuratKeluar> {
         children: [
           Text('Nomor Agenda: ${_agenda!.nomorAgenda}'),
           Text('Tanggal Agenda: ${DateFormat('dd MMMM yyyy', 'id_ID').format(_agenda!.tanggalAgenda)}'),
-          // Untuk surat keluar, pengirim adalah asal surat (biasanya Fakultas Ilmu Komputer)
-          Text('Pengirim: ${_agenda.pengirim ?? _currentSurat.asalSurat}'),
+          // Untuk surat keluar, pengirim adalah Fakultas Teknik
+          Text('Pengirim: ${_agenda.pengirim ?? "Fakultas Teknik"}'),
           // Untuk surat keluar, penerima adalah tujuan surat
           Text('Penerima: ${_agenda.penerima ?? _currentSurat.tujuanSurat ?? "-"}'),
         ],
@@ -267,7 +267,7 @@ class _DetailSuratKeluarState extends State<DetailSuratKeluar> {
                   MyDetailSurat(
                     nomorSurat: _currentSurat.nomorSurat,
                     tanggalSurat: formattedDate,
-                    pengirimSurat: _currentSurat.asalSurat,
+                    pengirimSurat: "Fakultas Teknik",  // Ubah dari _currentSurat.asalSurat menjadi "Fakultas Teknik"
                     // Perbaikan tujuanSurat - pastikan tidak pernah null
                     tujuanSurat: _currentSurat.tujuanSurat?.isNotEmpty == true ? _currentSurat.tujuanSurat! : '-',
                     // Gunakan nomor agenda dari data agenda jika tersedia

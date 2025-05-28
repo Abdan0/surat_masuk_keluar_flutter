@@ -385,55 +385,55 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
                               _buildFormFieldsRow(),
 
                             // Tambahkan di bagian paling bawah CardForm, sebelum tombol action
-                            if (kDebugMode) ...[
-                              const Divider(),
-                              const SizedBox(height: 16),
-                              Center(
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    if (_selectedFile != null) {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text('Info File'),
-                                          content: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                  'Nama: ${_selectedFile!.name}'),
-                                              Text(
-                                                  'Path: ${_selectedFile!.path}'),
-                                              Text(
-                                                  'Size: ${_selectedFile!.size} bytes'),
-                                              Text(
-                                                  'Extension: ${_selectedFile!.extension}'),
-                                            ],
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context),
-                                              child: const Text('Tutup'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Belum ada file yang dipilih')),
-                                      );
-                                    }
-                                  },
-                                  icon: const Icon(Icons.bug_report),
-                                  label: const Text('Debug File Info'),
-                                ),
-                              ),
-                            ],
+                            // if (kDebugMode) ...[
+                            //   const Divider(),
+                            //   const SizedBox(height: 16),
+                            //   Center(
+                            //     child: OutlinedButton.icon(
+                            //       onPressed: () {
+                            //         if (_selectedFile != null) {
+                            //           showDialog(
+                            //             context: context,
+                            //             builder: (context) => AlertDialog(
+                            //               title: const Text('Info File'),
+                            //               content: Column(
+                            //                 crossAxisAlignment:
+                            //                     CrossAxisAlignment.start,
+                            //                 mainAxisSize: MainAxisSize.min,
+                            //                 children: [
+                            //                   Text(
+                            //                       'Nama: ${_selectedFile!.name}'),
+                            //                   Text(
+                            //                       'Path: ${_selectedFile!.path}'),
+                            //                   Text(
+                            //                       'Size: ${_selectedFile!.size} bytes'),
+                            //                   Text(
+                            //                       'Extension: ${_selectedFile!.extension}'),
+                            //                 ],
+                            //               ),
+                            //               actions: [
+                            //                 TextButton(
+                            //                   onPressed: () =>
+                            //                       Navigator.pop(context),
+                            //                   child: const Text('Tutup'),
+                            //                 ),
+                            //               ],
+                            //             ),
+                            //           );
+                            //         } else {
+                            //           ScaffoldMessenger.of(context)
+                            //               .showSnackBar(
+                            //             const SnackBar(
+                            //                 content: Text(
+                            //                     'Belum ada file yang dipilih')),
+                            //           );
+                            //         }
+                            //       },
+                            //       icon: const Icon(Icons.bug_report),
+                            //       label: const Text('Debug File Info'),
+                            //     ),
+                            //   ),
+                            // ],
                           ]),
                     ),
                   ),

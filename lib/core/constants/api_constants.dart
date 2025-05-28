@@ -12,6 +12,8 @@ const String suratURL = apiURL + '/surat';
 const String disposisiURL = apiURL + '/disposisi';
 const String agendaURL = apiURL + '/agenda';
 const String storageURL = '$baseURL/storage';
+// Debug endpoint
+const String debugRegisterURL = '$apiURL/debug-register';
 
 // Error messages
 const String serverError = 'Terjadi kesalahan pada server';
@@ -24,7 +26,7 @@ const String registerSuccess = 'Registrasi berhasil';
 const String logoutSuccess = 'Logout berhasil';
 
 // Validation messages
-const String emailRequired = 'Email tidak boleh kosong';
+const String emailRequired = 'NIDN tidak boleh kosong';
 const String passwordRequired = 'Password tidak boleh kosong';
 const String nameRequired = 'Nama tidak boleh kosong';
 const String invalidEmail = 'Format email tidak valid';
@@ -64,3 +66,5 @@ String sanitizeUrl(String url) {
 
   return url;
 }
+
+

@@ -13,8 +13,12 @@ class AddUserPage extends StatefulWidget {
 }
 
 class _AddUserPageState extends State<AddUserPage> {
-  final _formKey = GlobalKey<FormState>();
+  // Tambahkan state untuk toggle visibility password
+  bool _passwordVisible = false;
+  bool _confirmPasswordVisible = false;
   
+  // State yang sudah ada sebelumnya
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _nidnController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -35,8 +39,38 @@ class _AddUserPageState extends State<AddUserPage> {
     super.dispose();
   }
 
+  Future<bool> _checkAdminAccess() async {
+    try {
+      final userData = await UserService.getUserData();
+      if (userData == null) return false;
+      
+      final isAdmin = userData.role?.toLowerCase() == 'admin';
+      print('🔐 User role: ${userData.role}, isAdmin: $isAdmin');
+      return isAdmin;
+    } catch (e) {
+      print('❌ Error checking admin access: $e');
+      return false;
+    }
+  }
+
   Future<void> _saveUser() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    // Cek apakah user adalah admin
+    final isAdmin = await _checkAdminAccess();
+    if (!isAdmin) {
+      setState(() {
+        _error = "Anda tidak memiliki hak akses untuk menambahkan pengguna";
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Akses ditolak: Hanya admin yang dapat menambahkan pengguna'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     
@@ -51,6 +85,47 @@ class _AddUserPageState extends State<AddUserPage> {
         nidn: _nidnController.text,
         role: _selectedRole,
       );
+      
+      // Tampilkan dialog konfirmasi
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Konfirmasi Tambah Pengguna'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Tambahkan pengguna dengan data berikut?'),
+                SizedBox(height: 12),
+                Text('Nama: ${_nameController.text}'),
+                Text('NIDN: ${_nidnController.text}'),
+                Text('Role: ${_formatRole(_selectedRole ?? "")}'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppPallete.primaryColor,
+              ),
+              child: Text('Tambahkan'),
+            ),
+          ],
+        ),
+      );
+      
+      if (confirm != true) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
       
       // Password akan dikirim terpisah karena bukan bagian dari model User
       final password = _passwordController.text;
@@ -72,12 +147,42 @@ class _AddUserPageState extends State<AddUserPage> {
         _isLoading = false;
       });
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal menambahkan pengguna: $_error'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        // Tampilkan dialog dengan detail error
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Gagal Menambahkan Pengguna'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Error: $_error'),
+                  SizedBox(height: 16),
+                  Text('Pastikan:'),
+                  Text('1. Anda memiliki hak akses admin'),
+                  Text('2. Aplikasi terhubung ke server'),
+                  Text('3. NIDN/username tidak duplikat'),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Tutup'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _saveUser(); // Coba lagi
+                },
+                child: Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -181,11 +286,24 @@ class _AddUserPageState extends State<AddUserPage> {
                 // Password field
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: !_passwordVisible,  // Gunakan state visibility
                   decoration: InputDecoration(
                     labelText: 'Password',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
+                    ),
+                    // Tambahkan suffix icon untuk toggle visibility
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _passwordVisible ? Icons.visibility_off : Icons.visibility,
+                        color: Theme.of(context).primaryColorDark,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _passwordVisible = !_passwordVisible;
+                        });
+                      },
+                      tooltip: _passwordVisible ? 'Sembunyikan password' : 'Tampilkan password',
                     ),
                   ),
                   validator: (value) {
@@ -203,11 +321,24 @@ class _AddUserPageState extends State<AddUserPage> {
                 // Confirm Password field
                 TextFormField(
                   controller: _passwordConfirmController,
-                  obscureText: true,
+                  obscureText: !_confirmPasswordVisible,  // Gunakan state visibility
                   decoration: InputDecoration(
                     labelText: 'Konfirmasi Password',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
+                    ),
+                    // Tambahkan suffix icon untuk toggle visibility
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _confirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                        color: Theme.of(context).primaryColorDark,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _confirmPasswordVisible = !_confirmPasswordVisible;
+                        });
+                      },
+                      tooltip: _confirmPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password',
                     ),
                   ),
                   validator: (value) {
