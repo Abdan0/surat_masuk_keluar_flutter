@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/detail_surat_keluar_page.dart';
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_apppbar2.dart';
@@ -72,7 +73,7 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
     });
 
     try {
-      // Mendapatkan user ID dengan mencoba beberapa pendekatan
+      // Mendapatkan user ID dengan pencoba beberapa pendekatan
       int userId;
       try {
         userId = await getUserId();
@@ -133,14 +134,45 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
         }
       }
       
-      // Buat objek surat dengan user ID yang valid
+      // Parse tanggal dengan benar
+      DateTime tanggalSurat;
+      try {
+        // Format expected: dd/MM/yyyy
+        if (tanggalController.text.isEmpty) {
+          throw FormatException('Tanggal surat tidak boleh kosong');
+        }
+        
+        final dateStr = tanggalController.text;
+        print('📅 Parsing tanggal: $dateStr');
+        
+        // Parse menggunakan intl DateFormat
+        final DateFormat formatter = DateFormat('dd/MM/yyyy');
+        tanggalSurat = formatter.parse(dateStr);
+        print('✅ Tanggal berhasil di-parse: $tanggalSurat');
+      } catch (e) {
+        // Tangani error format tanggal
+        print('❌ Error parsing tanggal: ${e.toString()}');
+        setState(() {
+          _isLoading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Format tanggal tidak valid. Gunakan format DD/MM/YYYY'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    
+      // Buat objek surat dengan user ID yang valid dan tanggal yang sudah di-parse
       final surat = Surat(
         nomorSurat: nomorSuratController.text,
         tipe: 'keluar',
         kategori: _selectedKategoriDropdown == '--Kategori Surat--' ? 'internal' : _selectedKategoriDropdown!,
         asalSurat: 'Fakultas Ilmu Komputer',
         tujuanSurat: tujuanSuratController.text,
-        tanggalSurat: DateTime.parse(tanggalController.text),
+        tanggalSurat: tanggalSurat, // Gunakan tanggal yang sudah di-parse
         perihal: perihalSuratController.text,
         isi: isiSuratController.text,
         status: 'draft',
@@ -153,7 +185,9 @@ class _TambahSuratKeluarState extends State<TambahSuratKeluar> {
       // Simpan surat ke API
       final createdSurat = await SuratService.createSuratWithErrorHandling(
         surat, 
-        pdfFile: _selectedFile != null ? File(_selectedFile!.path!) : null,
+        pdfFile: _selectedFile != null && _selectedFile!.path != null 
+          ? File(_selectedFile!.path!) 
+          : null,
         createAgenda: true // Aktifkan pembuatan agenda otomatis
       );
 

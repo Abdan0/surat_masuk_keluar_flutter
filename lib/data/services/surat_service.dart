@@ -100,6 +100,17 @@ class SuratService {
     }
   }
 
+  // Tambahkan metode getSurat sebagai alias untuk getSuratById
+  static Future<Surat> getSurat(int id) async {
+    try {
+      print('🔍 Mengambil data surat dengan ID: $id');
+      return await getSuratById(id);
+    } catch (e) {
+      print('❌ Error dalam getSurat: $e');
+      throw Exception('Gagal mendapatkan data surat: $e');
+    }
+  }
+
   // Membuat surat baru
   static Future<Surat> createSurat(Surat surat, {File? pdfFile}) async {
     try {
@@ -265,6 +276,72 @@ class SuratService {
         }
       }
       
+      // Tambahkan logika untuk upload file setelah surat berhasil dibuat
+      if (pdfFile != null) {
+        try {
+          print('📎 Mencoba upload file untuk surat baru: ${createdSurat.id}');
+          
+          // Periksa file terlebih dahulu
+          if (await pdfFile.exists()) {
+            print('✅ File ditemukan: ${pdfFile.path}');
+            await uploadSuratFile(createdSurat.id!, pdfFile);
+            
+            // Refresh data surat untuk mendapatkan URL file yang baru diupload
+            final updatedSurat = await getSurat(createdSurat.id!);
+            
+            // Buat surat baru dengan file yang diupdate
+            final updatedCreatedSurat = Surat(
+              id: createdSurat.id,
+              nomorSurat: createdSurat.nomorSurat,
+              tipe: createdSurat.tipe,
+              kategori: createdSurat.kategori,
+              asalSurat: createdSurat.asalSurat,
+              tujuanSurat: createdSurat.tujuanSurat,
+              tanggalSurat: createdSurat.tanggalSurat,
+              perihal: createdSurat.perihal,
+              isi: createdSurat.isi,
+              file: updatedSurat.file,
+              status: createdSurat.status,
+              userId: createdSurat.userId,
+              createdAt: createdSurat.createdAt, 
+              updatedAt: createdSurat.updatedAt,
+            );
+            
+            // Tambahkan agendaCreationError jika ada
+            if (createdSurat.agendaCreationError != null) {
+              updatedCreatedSurat.agendaCreationError = createdSurat.agendaCreationError;
+            }
+            
+            // Ganti reference ke surat
+            createdSurat = updatedCreatedSurat;
+          } else {
+            print('⚠️ File tidak ditemukan di path: ${pdfFile.path}');
+            throw Exception('File tidak ditemukan di path yang ditentukan');
+          }
+        } catch (uploadError) {
+          print('⚠️ Error uploading file: $uploadError');
+          // Cara yang aman untuk memperbarui error tanpa mengubah properti final
+          final suratWithError = Surat(
+            id: createdSurat.id,
+            nomorSurat: createdSurat.nomorSurat,
+            tipe: createdSurat.tipe,
+            kategori: createdSurat.kategori,
+            asalSurat: createdSurat.asalSurat,
+            tujuanSurat: createdSurat.tujuanSurat,
+            tanggalSurat: createdSurat.tanggalSurat,
+            perihal: createdSurat.perihal,
+            isi: createdSurat.isi,
+            file: createdSurat.file,
+            status: createdSurat.status,
+            userId: createdSurat.userId,
+            createdAt: createdSurat.createdAt,
+            updatedAt: createdSurat.updatedAt,
+          );
+          suratWithError.agendaCreationError = "Berhasil membuat surat, tetapi gagal mengupload file: $uploadError";
+          createdSurat = suratWithError;
+        }
+      }
+      
       return createdSurat;
     } catch (e) {
       print('❌ Error membuat surat: $e');
@@ -350,10 +427,10 @@ class SuratService {
     try {
       final token = await getToken();
       
-      // Buat multipart request
+      // Buat multipart request dengan endpoint yang benar
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$suratURL/$suratId/upload'),
+        Uri.parse('$suratURL/$suratId/upload'), // Pastikan URL endpoint sudah benar
       );
       
       // Set headers
@@ -362,12 +439,16 @@ class SuratService {
         'Authorization': token,
       });
       
-      // Tambahkan file
-      final multipartFile = await http.MultipartFile.fromPath(
-        'file_surat', 
-        file.path
+      // Tambahkan file dengan nama field yang sesuai dengan backend
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file_surat',
+          file.path,
+          filename: file.path.split(Platform.isWindows ? '\\' : '/').last
+        )
       );
-      request.files.add(multipartFile);
+      
+      print('🚀 Mengirim request upload file ke $suratURL/$suratId/upload');
       
       // Kirim request
       final streamedResponse = await request.send();
@@ -377,8 +458,10 @@ class SuratService {
       print('📄 Upload response: ${response.body}');
       
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Gagal upload file: ${response.statusCode}');
+        throw Exception('Gagal upload file: HTTP ${response.statusCode}, response: ${response.body}');
       }
+      
+      print('✅ File berhasil diupload');
     } catch (e) {
       print('❌ Error uploading file: $e');
       throw Exception('Gagal upload file: $e');
@@ -631,13 +714,16 @@ class SuratService {
   static Future<void> uploadSuratFile(int suratId, File file) async {
     try {
       print('📎 Uploading file untuk surat ID $suratId');
+      print('📄 File path: ${file.path}');
+      print('📄 File exists: ${await file.exists()}');
+      print('📄 File size: ${await file.length()} bytes');
       
       final token = await getToken();
       
-      // Buat multipart request
+      // Buat multipart request dengan endpoint yang benar
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$suratURL/$suratId/upload'),
+        Uri.parse('$suratURL/$suratId/upload'), // Pastikan URL endpoint sudah benar
       );
       
       // Set headers
@@ -646,9 +732,16 @@ class SuratService {
         'Authorization': token,
       });
       
-      // Tambahkan file
-      final multipartFile = await http.MultipartFile.fromPath('file_surat', file.path);
-      request.files.add(multipartFile);
+      // Tambahkan file dengan nama field yang sesuai dengan backend
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file_surat',
+          file.path,
+          filename: file.path.split(Platform.isWindows ? '\\' : '/').last
+        )
+      );
+      
+      print('🚀 Mengirim request upload file ke $suratURL/$suratId/upload');
       
       // Kirim request
       final streamedResponse = await request.send();
@@ -658,7 +751,7 @@ class SuratService {
       print('📄 Upload response: ${response.body}');
       
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Gagal upload file: ${response.statusCode}');
+        throw Exception('Gagal upload file: HTTP ${response.statusCode}, response: ${response.body}');
       }
       
       print('✅ File berhasil diupload');
@@ -761,14 +854,72 @@ class SuratService {
 
   // Mengembalikan URL lengkap untuk akses file
   static Future<String> getFileUrl(String filePath) async {
-    if (filePath.isEmpty) return '';
-    
-    // Cek apakah filePath sudah berupa URL lengkap
-    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+  if (filePath == null || filePath.isEmpty) return '';
+  
+  try {
+    // Jika path sudah berupa URL lengkap, kembalikan langsung
+    if (filePath.startsWith('http')) {
       return filePath;
     }
     
-    // Jika file path relatif, tambahkan baseURL
-    return '$baseURL/storage/$filePath';
+    // Pastikan URL endpoint file benar
+    const fileEndpoint = '$baseURL/storage';
+    
+    // Normalisasi path file
+    String normalizedPath = filePath;
+    
+    // Jika path menggunakan format storage Laravel
+    if (filePath.startsWith('public/')) {
+      normalizedPath = filePath.substring(7); // Hapus 'public/'
+    }
+    
+    final fullUrl = '$fileEndpoint/$normalizedPath';
+    print('📁 Generated file URL: $fullUrl');
+    
+    // Verifikasi URL dengan HEAD request (opsional tapi membantu debugging)
+    try {
+      final response = await http.head(Uri.parse(fullUrl));
+      print('🔍 File URL status: ${response.statusCode}');
+      if (response.statusCode >= 400) {
+        print('⚠️ URL file mungkin tidak valid: $fullUrl (${response.statusCode})');
+      }
+    } catch (verifyErr) {
+      print('⚠️ Tidak bisa verifikasi URL: $verifyErr');
+    }
+    
+    return fullUrl;
+  } catch (e) {
+    print('❌ Error getting file URL: $e');
+    return '';
   }
+}
+
+  // Tambahkan metode ini di SuratService
+  static Future<bool> verifyFileUpload(int suratId) async {
+  try {
+    final surat = await getSuratById(suratId);
+    print('📋 Verifikasi file untuk surat #$suratId: ${surat.file ?? "tidak ada"}');
+    return surat.file != null && surat.file!.isNotEmpty;
+  } catch (e) {
+    print('❌ Error verifikasi file: $e');
+    return false;
+  }
+}
+
+  // Metode alternatif untuk mendapatkan file langsung dari API
+  static Future<String> getDirectFileUrl(int suratId) async {
+  return '$apiURL/surat/$suratId/file';
+}
+
+  // Di SuratService.dart, tambahkan metode ini
+  static Future<bool> isFileUrlAccessible(String fileUrl) async {
+  try {
+    final response = await http.head(Uri.parse(fileUrl));
+    print('🔍 Verifikasi URL $fileUrl: ${response.statusCode}');
+    return response.statusCode >= 200 && response.statusCode < 400;
+  } catch (e) {
+    print('❌ Error verifikasi URL: $e');
+    return false;
+  }
+}
 }

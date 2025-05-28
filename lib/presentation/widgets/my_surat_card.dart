@@ -320,17 +320,19 @@ class MySuratCard extends StatelessWidget {
   String _formatStatus(String statusText) {
     switch (statusText.toLowerCase()) {
       case 'draft':
-        return 'Draft';
-      case 'review':
-        return 'Review';
-      case 'approved':
-        return 'Disetujui';
-      case 'rejected':
-        return 'Ditolak';
-      case 'completed':
-        return 'Selesai';
+        return 'DRAFT';
+      case 'ditindaklanjuti':
+        return 'DITINDAKLANJUTI';
+      case 'diajukan':
+        return 'DIAJUKAN';
+      case 'diverifikasi':
+        return 'DIVERIFIKASI';
+      case 'selesai':
+        return 'SELESAI';
+      case 'ditolak':
+        return 'DITOLAK';
       default:
-        return statusText;
+        return statusText.toUpperCase();
     }
   }
   
@@ -352,15 +354,17 @@ class MySuratCard extends StatelessWidget {
     
     switch (status!.toLowerCase()) {
       case 'draft':
-        return Colors.grey;
-      case 'review':
+        return Colors.grey.shade700;
+      case 'ditindaklanjuti':
         return Colors.orange;
-      case 'approved':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      case 'completed':
+      case 'diajukan':
         return Colors.blue;
+      case 'diverifikasi':
+        return Colors.green;
+      case 'selesai':
+        return Colors.green.shade700;
+      case 'ditolak':
+        return Colors.red;
       default:
         return Colors.grey;
     }

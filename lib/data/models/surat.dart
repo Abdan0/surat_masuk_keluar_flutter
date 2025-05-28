@@ -6,6 +6,7 @@ import 'package:surat_masuk_keluar_flutter/data/models/agenda.dart';
 import 'package:surat_masuk_keluar_flutter/data/services/disposisi_service.dart';
 import 'package:surat_masuk_keluar_flutter/data/models/disposisi.dart';
 import 'package:surat_masuk_keluar_flutter/data/services/auth_service.dart';
+import 'package:surat_masuk_keluar_flutter/data/services/surat_service.dart';
 import 'package:surat_masuk_keluar_flutter/data/services/user_service.dart' as UserService;
 
 class Surat {
@@ -18,7 +19,7 @@ class Surat {
   final DateTime tanggalSurat;
   final String perihal;
   final String isi;
-  final String? file;
+  String? file;
   final String status;
   final int userId;
   final String? createdAt;
@@ -88,6 +89,10 @@ class Surat {
   bool isDikirim() => status == 'dikirim';
   bool isVerified() => status == 'diverifikasi';
   bool isDitolak() => status == 'ditolak';
+  
+  // Tambahkan helper methods untuk status baru
+  bool isDitindaklanjuti() => status.toLowerCase() == 'ditindaklanjuti';
+  bool isSelesai() => status.toLowerCase() == 'selesai';
   
   // Helper methods untuk tipe
   bool isMasuk() => tipe.toLowerCase() == 'masuk';
@@ -191,6 +196,69 @@ class Surat {
     } catch (e) {
       print('Error disposisikan surat: $e');
       rethrow;
+    }
+  }
+
+  // Helper method untuk update status
+  Future<bool> updateStatus(String newStatus) async {
+    if (id == null) return false;
+    
+    try {
+      // Buat surat baru dengan status yang diperbarui
+      final updatedSurat = Surat(
+        id: id,
+        nomorSurat: nomorSurat,
+        tipe: tipe,
+        kategori: kategori,
+        asalSurat: asalSurat,
+        tujuanSurat: tujuanSurat,
+        tanggalSurat: tanggalSurat,
+        perihal: perihal,
+        isi: isi,
+        file: file,
+        status: newStatus,
+        userId: userId,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+      );
+      
+      // Update surat menggunakan service
+      await SuratService.updateSuratWithFallback(id!, updatedSurat);
+      return true;
+    } catch (e) {
+      print('❌ Error updating surat status: $e');
+      return false;
+    }
+  }
+
+  // Helper method untuk cek status disposisi terkait
+  Future<String?> getHighestDisposisiStatus() async {
+    if (id == null) return null;
+    
+    try {
+      final disposisiList = await getDisposisi();
+      if (disposisiList.isEmpty) return null;
+      
+      // Cek prioritas status disposisi
+      bool adaSelesai = false;
+      bool adaTindaklanjut = false;
+      
+      for (final disposisi in disposisiList) {
+        if (disposisi.status.toLowerCase() == 'selesai') {
+          adaSelesai = true;
+          break; // Prioritaskan status selesai
+        } else if (disposisi.status.toLowerCase() == 'ditindaklanjuti') {
+          adaTindaklanjut = true;
+        }
+      }
+      
+      if (adaSelesai) return 'selesai';
+      if (adaTindaklanjut) return 'ditindaklanjuti';
+      
+      return null;
+    } catch (e) {
+      print('❌ Error getting disposisi status: $e');
+      return null;
     }
   }
 }

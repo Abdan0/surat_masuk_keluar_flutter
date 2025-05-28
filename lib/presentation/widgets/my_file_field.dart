@@ -27,17 +27,33 @@ class MyFileField extends StatelessWidget {
         suffixIcon: IconButton(
           icon: const Icon(Icons.attach_file),
           onPressed: () async {
-            final result = await FilePicker.platform.pickFiles(
-              type: FileType.custom,
-              allowedExtensions: ['pdf', 'doc', 'docx'],
-            );
+            try {
+              FilePickerResult? result = await FilePicker.platform.pickFiles(
+                type: FileType.custom,
+                allowedExtensions: ['pdf', 'doc', 'docx'],
+              );
 
-            if (result != null && result.files.isNotEmpty) {
-              final file = result.files.first;
-              controller.text = file.name; // Menampilkan nama file di input field
+              if (result != null) {
+                final file = result.files.first;
+                print('🗂️ File dipilih: ${file.name}, path: ${file.path}, size: ${file.size}');
 
-              // Memanggil callback dengan file yang dipilih
-              onFilePicked(file);
+                // Validasi file path
+                if (file.path == null || file.path!.isEmpty) {
+                  print('⚠️ File path tidak valid: ${file.path}');
+                  return;
+                }
+
+                // Periksa apakah file ada
+                final fileExists = await File(file.path!).exists();
+                print('📄 File exists: $fileExists');
+
+                controller.text = file.name;
+                if (onFilePicked != null) {
+                  onFilePicked!(file);
+                }
+              }
+            } catch (e) {
+              print('❌ Error memilih file: $e');
             }
           },
         ),

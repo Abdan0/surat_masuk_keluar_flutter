@@ -1,4 +1,10 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
 import 'package:surat_masuk_keluar_flutter/data/models/surat.dart';
@@ -558,20 +564,108 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
     }
     
     try {
+      print('🔍 Mencoba membuka file: ${surat.file}');
+      
+      // Tampilkan indikator loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      // Dapatkan URL file
       final fileUrl = await SuratService.getFileUrl(surat.file!);
-      if (fileUrl.isNotEmpty) {
-        final uri = Uri.parse(fileUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          throw Exception('Tidak dapat membuka file');
-        }
+      if (fileUrl.isEmpty) {
+        throw Exception('URL file tidak valid');
       }
+      
+      print('🔗 URL File: $fileUrl');
+      
+      // Download file ke penyimpanan lokal
+      final tempFile = await _downloadAndSaveFile(fileUrl, _getFileName(surat.file!));
+      
+      // Tutup dialog loading
+      Navigator.pop(context);
+      
+      if (tempFile == null) {
+        throw Exception('Gagal mengunduh file');
+      }
+      
+      print('💾 File berhasil disimpan di: ${tempFile.path}');
+      
+      // Buka file lokal menggunakan open_file package
+      final result = await OpenFile.open(tempFile.path);
+      
+      if (result.type != ResultType.done) {
+        throw Exception('Tidak dapat membuka file: ${result.message}');
+      }
+      
+      print('✅ File berhasil dibuka');
+      
     } catch (e) {
+      // Tutup dialog loading jika masih ada
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      print('❌ Error membuka file: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal membuka file: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Gagal membuka file: $e'), 
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Lihat URL',
+            onPressed: () {
+              _showFileUrlDetail(surat);
+            },
+          ),
+        ),
       );
     }
+  }
+  
+  // Tambahkan metode helper untuk download dan simpan file
+  Future<File?> _downloadAndSaveFile(String url, String fileName) async {
+    try {
+      print('📥 Mengunduh file dari: $url');
+      
+      // Coba download file dengan http
+      final response = await http.get(Uri.parse(url));
+      
+      if (response.statusCode != 200) {
+        print('❌ Download file gagal: HTTP ${response.statusCode}');
+        return null;
+      }
+      
+      // Dapatkan directory penyimpanan sementara
+      final tempDir = await getTemporaryDirectory();
+      final filePath = '${tempDir.path}/$fileName';
+      
+      // Simpan file ke storage
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+      
+      return file;
+    } catch (e) {
+      print('❌ Error saat download file: $e');
+      return null;
+    }
+  }
+  
+  // Helper method untuk mendapatkan nama file dari path
+  String _getFileName(String filePath) {
+    // Extract nama file dari path atau generate nama random jika perlu
+    final uri = Uri.parse(filePath);
+    String fileName = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+    
+    if (fileName.isEmpty) {
+      // Buat nama file random jika tidak dapat ekstrak
+      fileName = 'dokumen_${DateTime.now().millisecondsSinceEpoch}.${_getFileExtension(filePath)}';
+    }
+    
+    return fileName;
   }
   
   // Helper method untuk mengunduh file
@@ -679,6 +773,101 @@ class _GaleriSuratMasukState extends State<GaleriSuratMasuk> {
               fontSize: 14,
               color: isWarning ? Colors.orange[700] : Colors.black87,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Di dalam _openFilePreview, tambahkan opsi ini untuk mengatasi URL yang tidak dapat dibuka langsung
+  void _showOpenOptions(File localFile, String fileUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Opsi Membuka File'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Pilih cara untuk membuka file:'),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.open_in_browser),
+              title: const Text('Buka di Browser'),
+              onTap: () async {
+                Navigator.pop(context);
+                if (await canLaunchUrl(Uri.parse(fileUrl))) {
+                  launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.open_in_new),
+              title: const Text('Buka dengan Aplikasi Lain'),
+              onTap: () async {
+                Navigator.pop(context);
+                await OpenFile.open(localFile.path);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Bagikan File'),
+              onTap: () async {
+                Navigator.pop(context);
+                await Share.shareXFiles([XFile(localFile.path)]);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tambahkan fungsi ini setelah _downloadAndSaveFile atau sebelum _downloadFile
+  void _showFileUrlDetail(Surat surat) async {
+    if (surat.file == null || surat.file!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada file yang tersedia untuk ditampilkan'))
+      );
+      return;
+    }
+
+    final fileUrl = await SuratService.getFileUrl(surat.file!);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Detail URL File'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Original Path: ${surat.file}'),
+            const SizedBox(height: 8),
+            Text('Generated URL: $fileUrl'),
+            const SizedBox(height: 16),
+            const Text('Salin URL ini dan coba buka di browser untuk memeriksa apakah file dapat diakses.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: fileUrl));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('URL disalin ke clipboard'))
+              );
+            },
+            child: const Text('Salin URL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
           ),
         ],
       ),

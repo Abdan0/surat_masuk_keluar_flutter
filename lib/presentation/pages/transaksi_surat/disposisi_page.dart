@@ -7,6 +7,7 @@ import 'package:surat_masuk_keluar_flutter/data/models/disposisi.dart';
 import 'package:surat_masuk_keluar_flutter/data/models/surat.dart';
 import 'package:surat_masuk_keluar_flutter/data/models/user.dart';
 import 'package:surat_masuk_keluar_flutter/data/services/disposisi_service.dart';
+import 'package:surat_masuk_keluar_flutter/data/services/surat_service.dart';
 import 'package:surat_masuk_keluar_flutter/data/services/user_service.dart' as UserService;
 import 'package:surat_masuk_keluar_flutter/presentation/widgets/my_apppbar2.dart';
 import 'dart:math';
@@ -34,6 +35,9 @@ class _DisposisiPageState extends State<DisposisiPage> {
   bool _isLoading = false;
   String? _error;
   
+  // Tambahkan variable disposisi
+  late Disposisi _disposisi;
+  
   // List untuk menyimpan user yang dapat menerima disposisi
   List<User> _penerimaList = [];
 
@@ -42,6 +46,16 @@ class _DisposisiPageState extends State<DisposisiPage> {
     super.initState();
     _tenggatWaktu = DateTime.now().add(const Duration(days: 3)); // Default 3 hari
     _loadUsers();
+    
+    // Inisialisasi _disposisi dengan nilai default
+    _disposisi = Disposisi(
+      suratId: widget.surat.id!,
+      dariUserId: 0,  // Akan diupdate saat disposisi dibuat
+      kepadaUserId: 0, // Akan diupdate saat disposisi dibuat
+      instruksi: '',
+      status: 'draft',
+      tanggalDisposisi: DateTime.now(),
+    );
     
     // Debug print untuk surat
     print('📄 Surat untuk disposisi: ID=${widget.surat.id}, Nomor=${widget.surat.nomorSurat}');
@@ -488,7 +502,9 @@ class _DisposisiPageState extends State<DisposisiPage> {
       // Kirim ke API
       final disposisi = await DisposisiService.createDisposisi(disposisiData);
       
+      // Update variable _disposisi dengan data terbaru
       setState(() {
+        _disposisi = disposisi;
         _isLoading = false;
       });
       
@@ -555,5 +571,138 @@ class _DisposisiPageState extends State<DisposisiPage> {
         ),
       );
     }
+  }
+  
+  // Di dalam metode _updateStatus tambahkan kode untuk update status surat
+  Future<void> _updateStatus(String newStatus) async {
+    // Periksa apakah disposisi memiliki ID yang valid
+    if (_disposisi.id == null) {
+      print('⚠️ Tidak dapat mengupdate status: ID disposisi tidak valid');
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      // Update status disposisi
+      final updatedDisposisi = await DisposisiService.updateStatusDisposisi(
+        _disposisi.id!,
+        newStatus,
+      );
+      
+      // Jika status selesai atau ditindaklanjuti, update juga status surat
+      if (newStatus.toLowerCase() == 'selesai' || newStatus.toLowerCase() == 'ditindaklanjuti') {
+        try {
+          // Dapatkan surat terkait
+          final surat = await SuratService.getSuratById(_disposisi.suratId);
+          
+          // Cek apakah status surat perlu diupdate
+          if (surat.status.toLowerCase() != newStatus.toLowerCase()) {
+            // Buat surat baru dengan status yang diperbarui
+            final updatedSurat = Surat(
+              id: surat.id,
+              nomorSurat: surat.nomorSurat,
+              tipe: surat.tipe,
+              kategori: surat.kategori,
+              asalSurat: surat.asalSurat,
+              tujuanSurat: surat.tujuanSurat,
+              tanggalSurat: surat.tanggalSurat,
+              perihal: surat.perihal,
+              isi: surat.isi,
+              file: surat.file,
+              status: newStatus.toLowerCase(),
+              userId: surat.userId,
+              createdAt: surat.createdAt,
+              updatedAt: surat.updatedAt,
+            );
+            
+            // Update surat
+            await SuratService.updateSuratWithFallback(surat.id!, updatedSurat);
+            print('✅ Status surat ${surat.id} diperbarui menjadi $newStatus');
+          }
+        } catch (suratError) {
+          print('❌ Error updating surat status: $suratError');
+          // Tetap lanjutkan dengan status disposisi yang berhasil diupdate
+        }
+      }
+      
+      setState(() {
+        _disposisi = updatedDisposisi;
+        _isLoading = false;
+      });
+      
+      if (!mounted) return;
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Status disposisi diubah menjadi ${newStatus.toUpperCase()}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _error = 'Gagal mengubah status: $e';
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_error!),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  // Tambahkan metode ini untuk menampilkan UI update status jika diperlukan
+  Widget _buildStatusUpdateUI() {
+    // Jika tidak ada ID disposisi, jangan tampilkan UI ini
+    if (_disposisi.id == null) return const SizedBox.shrink();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text(
+          'Update Status Disposisi',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : () => _updateStatus('ditindaklanjuti'),
+                icon: const Icon(Icons.pending_actions),
+                label: const Text('Ditindaklanjuti'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : () => _updateStatus('selesai'),
+                icon: const Icon(Icons.check_circle),
+                label: const Text('Selesai'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }

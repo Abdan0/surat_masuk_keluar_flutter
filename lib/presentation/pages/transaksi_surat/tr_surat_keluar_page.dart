@@ -10,6 +10,7 @@ import 'package:surat_masuk_keluar_flutter/presentation/pages/transaksi_surat/de
 import 'package:surat_masuk_keluar_flutter/core/theme/app_pallete.dart';
 import 'package:surat_masuk_keluar_flutter/data/services/surat_service.dart';
 import 'package:surat_masuk_keluar_flutter/data/models/surat.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TrSuratKeluarPage extends StatefulWidget {
   const TrSuratKeluarPage({super.key});
@@ -111,6 +112,118 @@ class _TrSuratKeluarPageState extends State<TrSuratKeluarPage> {
           ),
         );
       }
+    }
+  }
+
+  // Tambahkan fungsi untuk memperbarui status surat berdasarkan disposisi
+  Future<void> _updateSuratStatusFromDisposisi(Surat surat) async {
+    try {
+      // Dapatkan semua disposisi terkait surat
+      final disposisiList = await surat.getDisposisi();
+      if (disposisiList.isEmpty) return; // Jika tidak ada disposisi, keluar
+      
+      // Cek prioritas status disposisi
+      bool adaSelesai = false;
+      bool adaTindaklanjut = false;
+      
+      for (final disposisi in disposisiList) {
+        if (disposisi.status.toLowerCase() == 'selesai') {
+          adaSelesai = true;
+          break; // Prioritaskan status selesai
+        } else if (disposisi.status.toLowerCase() == 'ditindaklanjuti') {
+          adaTindaklanjut = true;
+        }
+      }
+      
+      // Update status surat berdasarkan prioritas
+      String newStatus;
+      if (adaSelesai) {
+        newStatus = 'selesai';
+      } else if (adaTindaklanjut) {
+        newStatus = 'ditindaklanjuti';
+      } else {
+        return; // Tidak perlu update
+      }
+      
+      // Hanya update jika status berbeda
+      if (surat.status.toLowerCase() != newStatus) {
+        print('ℹ️ Memperbarui status surat ${surat.id} dari ${surat.status} menjadi $newStatus');
+        
+        // Buat surat baru dengan status yang diperbarui
+        final updatedSurat = Surat(
+          id: surat.id,
+          nomorSurat: surat.nomorSurat,
+          tipe: surat.tipe,
+          kategori: surat.kategori,
+          asalSurat: surat.asalSurat,
+          tujuanSurat: surat.tujuanSurat,
+          tanggalSurat: surat.tanggalSurat,
+          perihal: surat.perihal,
+          isi: surat.isi,
+          file: surat.file,
+          status: newStatus, // Status baru disini
+          userId: surat.userId,
+          createdAt: surat.createdAt,
+          updatedAt: surat.updatedAt,
+        );
+        
+        // Update surat
+        await SuratService.updateSuratWithFallback(surat.id!, updatedSurat);
+        
+        // Refresh data
+        await _loadSuratKeluar();
+      }
+    } catch (e) {
+      print('❌ Error updating surat status from disposisi: $e');
+    }
+  }
+
+  // Tambahkan fungsi ini di dalam class _TrSuratKeluarPageState
+  Future<void> _openFilePdf(Surat surat) async {
+    try {
+      if (surat.file == null || surat.file!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File tidak tersedia'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+      
+      // Tampilkan indikator loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      final fileUrl = await SuratService.getFileUrl(surat.file!);
+      
+      // Tutup dialog loading
+      Navigator.pop(context);
+      
+      if (fileUrl.isEmpty) {
+        throw Exception('URL file tidak valid');
+      }
+      
+      print('🔗 Mencoba membuka file: $fileUrl');
+      
+      final uri = Uri.parse(fileUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        print('✅ File berhasil dibuka di browser');
+      } else {
+        print('❌ Tidak dapat membuka URL: $uri');
+        throw Exception('Tidak dapat membuka file');
+      }
+    } catch (e) {
+      print('❌ Error membuka file: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal membuka file: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -324,9 +437,7 @@ class _TrSuratKeluarPageState extends State<TrSuratKeluarPage> {
           status: surat.status,
           onPdfTap: surat.file != null ? () {
             // Implementasi buka PDF
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Membuka file: ${surat.file}')),
-            );
+            _openFilePdf(surat);
           } : null,
           onDisposisiTap: () {
             Navigator.push(
@@ -334,7 +445,7 @@ class _TrSuratKeluarPageState extends State<TrSuratKeluarPage> {
               MaterialPageRoute(
                 builder: (context) => DisposisiPage(surat: surat),
               ),
-            ).then((createdDisposisi) {
+            ).then((createdDisposisi) async {
               if (createdDisposisi != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -342,6 +453,9 @@ class _TrSuratKeluarPageState extends State<TrSuratKeluarPage> {
                     backgroundColor: Colors.green,
                   ),
                 );
+                
+                // Update status surat dari disposisi
+                await _updateSuratStatusFromDisposisi(surat);
                 _loadSuratKeluar();
               }
             });
@@ -355,6 +469,8 @@ class _TrSuratKeluarPageState extends State<TrSuratKeluarPage> {
             );
             
             if (result != null) {
+              // Update status surat dari disposisi
+              await _updateSuratStatusFromDisposisi(surat);
               _loadSuratKeluar();
             }
           },

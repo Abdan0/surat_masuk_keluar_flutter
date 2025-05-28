@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -73,14 +74,29 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
     });
 
     try {
-      // Mendapatkan user ID dengan mencoba beberapa pendekatan
+      // Validasi file terlebih dahulu
+      if (_selectedFile != null) {
+        if (_selectedFile!.path == null || _selectedFile!.path!.isEmpty) {
+          throw Exception('File path tidak valid');
+        }
+
+        final fileExists = await File(_selectedFile!.path!).exists();
+        if (!fileExists) {
+          throw Exception('File tidak ditemukan di path yang ditentukan');
+        }
+
+        print(
+            '✅ File valid: ${_selectedFile!.name}, size: ${_selectedFile!.size} bytes');
+      }
+
+      // Mendapatkan user ID dengan pencoba beberapa pendekatan
       int userId;
       try {
         userId = await getUserId();
         print('👤 Menggunakan user ID: $userId');
       } catch (e) {
         print('❌ Error mendapatkan user ID: $e');
-        
+
         // Mencoba refresh token terlebih dahulu
         final tokenRefreshed = await refreshToken();
         if (tokenRefreshed) {
@@ -92,18 +108,20 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
             setState(() {
               _isLoading = false;
             });
-            
+
             if (!mounted) return;
-            
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text('Session telah berakhir, silakan login kembali'),
+                content:
+                    const Text('Session telah berakhir, silakan login kembali'),
                 backgroundColor: Colors.red,
                 action: SnackBarAction(
                   label: 'Login',
                   onPressed: () {
                     // Navigate to login page
-                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    Navigator.of(context)
+                        .pushNamedAndRemoveUntil('/login', (route) => false);
                   },
                 ),
               ),
@@ -114,18 +132,20 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
           // Jika refresh gagal, gunakan fixed default (hanya untuk debugging)
           if (kDebugMode) {
             userId = 1; // Default untuk debugging
-            print('⚠️ WARNING: Menggunakan default user ID = $userId (hanya untuk debugging)');
+            print(
+                '⚠️ WARNING: Menggunakan default user ID = $userId (hanya untuk debugging)');
           } else {
             // Di production, tampilkan error
             setState(() {
               _isLoading = false;
             });
-            
+
             if (!mounted) return;
-            
+
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Gagal mendapatkan data user. Silakan login kembali.'),
+                content:
+                    Text('Gagal mendapatkan data user. Silakan login kembali.'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -133,15 +153,49 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
           }
         }
       }
-      
-      // Buat objek surat dengan user ID yang valid
+
+      // Parse tanggal dengan benar
+      DateTime tanggalSurat;
+      try {
+        // Format expected: dd/MM/yyyy
+        if (tanggalController.text.isEmpty) {
+          throw FormatException('Tanggal surat tidak boleh kosong');
+        }
+
+        final dateStr = tanggalController.text;
+        print('📅 Parsing tanggal: $dateStr');
+
+        // Parse menggunakan intl DateFormat
+        final DateFormat formatter = DateFormat('dd/MM/yyyy');
+        tanggalSurat = formatter.parse(dateStr);
+        print('✅ Tanggal berhasil di-parse: $tanggalSurat');
+      } catch (e) {
+        // Tangani error format tanggal
+        print('❌ Error parsing tanggal: ${e.toString()}');
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Format tanggal tidak valid. Gunakan format DD/MM/YYYY'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Buat objek surat dengan user ID yang valid dan tanggal yang sudah di-parse
       final surat = Surat(
         nomorSurat: nomorSuratController.text,
         tipe: 'masuk',
-        kategori: _selectedKategoriDropdown == '--Kategori Surat--' ? 'internal' : _selectedKategoriDropdown!,
+        kategori: _selectedKategoriDropdown == '--Kategori Surat--'
+            ? 'internal'
+            : _selectedKategoriDropdown!,
         asalSurat: asalSuratController.text,
         tujuanSurat: null,
-        tanggalSurat: DateTime.parse(tanggalController.text),
+        tanggalSurat: tanggalSurat, // Gunakan tanggal yang sudah di-parse
         perihal: perihalSuratController.text,
         isi: isiSuratController.text,
         status: 'draft',
@@ -151,11 +205,11 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
       // Logging
       print('📝 Mengirim surat masuk dengan user ID: $userId');
 
-      // Simpan surat ke API
+      // Simpan surat ke API dengan file yang sudah divalidasi
       final createdSurat = await SuratService.createSuratWithErrorHandling(
-        surat, 
+        surat,
         pdfFile: _selectedFile != null ? File(_selectedFile!.path!) : null,
-        createAgenda: true
+        createAgenda: true,
       );
 
       setState(() {
@@ -168,7 +222,8 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
       if (createdSurat.agendaCreationError != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Surat berhasil disimpan, tetapi gagal membuat agenda: ${createdSurat.agendaCreationError}'),
+            content: Text(
+                'Surat berhasil disimpan, tetapi gagal membuat agenda: ${createdSurat.agendaCreationError}'),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 5),
           ),
@@ -196,11 +251,11 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
       });
 
       String errorMessage = 'Gagal menyimpan surat';
-      
+
       // More specific error handling for user ID issues
       if (e.toString().contains('user id is invalid')) {
         errorMessage = 'ID pengguna tidak valid. Silakan login kembali.';
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -208,36 +263,42 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
             action: SnackBarAction(
               label: 'Login',
               onPressed: () {
-                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                Navigator.of(context)
+                    .pushNamedAndRemoveUntil('/login', (route) => false);
               },
             ),
           ),
         );
         return;
       }
-      
+
       // Periksa dulu jika error HTML tapi surat sebetulnya tersimpan
-      if (e.toString().contains('HTML') && e.toString().contains('berhasil disimpan')) {
+      if (e.toString().contains('HTML') &&
+          e.toString().contains('berhasil disimpan')) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Data surat berhasil disimpan, tetapi ada masalah format respons.'),
+            content: Text(
+                'Data surat berhasil disimpan, tetapi ada masalah format respons.'),
             backgroundColor: Colors.orange,
           ),
         );
         Navigator.pop(context, true); // Kembali ke halaman sebelumnya
         return; // Keluar dari metode
       }
-      
+
       // Format pesan error menjadi lebih user-friendly
       if (e.toString().contains('HTML')) {
-        errorMessage = 'Server sedang bermasalah. Silakan coba lagi nanti atau hubungi admin.';
+        errorMessage =
+            'Server sedang bermasalah. Silakan coba lagi nanti atau hubungi admin.';
       } else if (e.toString().contains('connection')) {
-        errorMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda.';
+        errorMessage =
+            'Gagal terhubung ke server. Periksa koneksi internet Anda.';
       } else if (e.toString().contains('401')) {
         errorMessage = 'Session Anda telah berakhir. Silakan login kembali.';
       } else {
         // Ambil bagian pesan error yang penting saja
-        final match = RegExp(r'Exception: (Gagal.*?)(?:Exception:|$)').firstMatch(e.toString());
+        final match = RegExp(r'Exception: (Gagal.*?)(?:Exception:|$)')
+            .firstMatch(e.toString());
         if (match != null) {
           errorMessage = match.group(1) ?? errorMessage;
         } else {
@@ -303,40 +364,77 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Section title
-                          Text(
-                            'Informasi Dasar',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppPallete.primaryColor,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Section title
+                            Text(
+                              'Informasi Dasar',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppPallete.primaryColor,
+                              ),
                             ),
-                          ),
 
-                          const SizedBox(height: 16),
+                            const SizedBox(height: 16),
 
-                          // Form fields - adapting based on screen size
-                          if (isSmallScreen)
-                            _buildFormFieldsColumn()
-                          else
-                            _buildFormFieldsRow(),
+                            // Form fields - adapting based on screen size
+                            if (isSmallScreen)
+                              _buildFormFieldsColumn()
+                            else
+                              _buildFormFieldsRow(),
 
-                          // Tambahkan di bagian paling bawah CardForm, sebelum tombol action
-                          // if (kDebugMode) ...[
-                          //   const Divider(),
-                          //   const SizedBox(height: 16),
-                          //   Center(
-                          //     child: OutlinedButton.icon(
-                          //       onPressed: _checkUserSession,
-                          //       icon: const Icon(Icons.bug_report),
-                          //       label: const Text('Debug: Check User Session'),
-                          //     ),
-                          //   ),
-                          // ],
-                        ],
-                      ),
+                            // Tambahkan di bagian paling bawah CardForm, sebelum tombol action
+                            if (kDebugMode) ...[
+                              const Divider(),
+                              const SizedBox(height: 16),
+                              Center(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    if (_selectedFile != null) {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Info File'),
+                                          content: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                  'Nama: ${_selectedFile!.name}'),
+                                              Text(
+                                                  'Path: ${_selectedFile!.path}'),
+                                              Text(
+                                                  'Size: ${_selectedFile!.size} bytes'),
+                                              Text(
+                                                  'Extension: ${_selectedFile!.extension}'),
+                                            ],
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              child: const Text('Tutup'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Belum ada file yang dipilih')),
+                                      );
+                                    }
+                                  },
+                                  icon: const Icon(Icons.bug_report),
+                                  label: const Text('Debug File Info'),
+                                ),
+                              ),
+                            ],
+                          ]),
                     ),
                   ),
 
@@ -355,8 +453,10 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
                           },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppPallete.textColor,
-                            side: const BorderSide(color: AppPallete.borderColor),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            side:
+                                const BorderSide(color: AppPallete.borderColor),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -595,7 +695,8 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
         filled: true,
         fillColor: AppPallete.backgroundColor,
         suffixIcon: suffixIcon,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(color: AppPallete.borderColor),
@@ -615,7 +716,7 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
     try {
       final token = await getToken();
       final userId = await getUserId().catchError((e) => 0);
-      
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -624,7 +725,8 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Token: ${token.isNotEmpty ? "Valid (${token.substring(0, 20)}...)" : "Not available"}'),
+              Text(
+                  'Token: ${token.isNotEmpty ? "Valid (${token.substring(0, 20)}...)" : "Not available"}'),
               const SizedBox(height: 8),
               Text('User ID: $userId'),
             ],

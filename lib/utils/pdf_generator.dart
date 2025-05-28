@@ -30,6 +30,28 @@ class PdfGenerator {
               ),
             ),
             pw.SizedBox(height: 10),
+
+            pw.Center(
+              child: pw.Text(
+                'FAKULTAS TEKNIK',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 10),
+
+            pw.Center(
+              child: pw.Text(
+                'UNIVERSITAS MUHAMMADIYAH TANGERANG',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 10),
             
             pw.Center(
               child: pw.Text(
@@ -107,6 +129,28 @@ class PdfGenerator {
             pw.Center(
               child: pw.Text(
                 'BUKU AGENDA SURAT KELUAR',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 10),
+
+            pw.Center(
+              child: pw.Text(
+                'FAKULTAS TEKNIK',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 10),
+
+            pw.Center(
+              child: pw.Text(
+                'UNIVERSITAS MUHAMMADIYAH TANGERANG',
                 style: pw.TextStyle(
                   fontSize: 16,
                   fontWeight: pw.FontWeight.bold,
