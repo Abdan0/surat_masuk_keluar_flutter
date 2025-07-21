@@ -180,17 +180,42 @@ class _AgendaSuratMasukState extends State<AgendaSuratMasuk> {
     }
   }
 
+  // Tambahkan method validasi range tanggal
+  bool _isValidDateRange() {
+    if (_startDate != null && _endDate != null) {
+      // Normalisasi tanggal untuk perbandingan yang adil
+      final normalizedStartDate = DateTime(
+        _startDate!.year, 
+        _startDate!.month, 
+        _startDate!.day
+      );
+      final normalizedEndDate = DateTime(
+        _endDate!.year, 
+        _endDate!.month, 
+        _endDate!.day
+      );
+      
+      if (normalizedStartDate.isAfter(normalizedEndDate)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // Filter agenda by date range
   List<Agenda> _filterAgendaByDateRange(List<Agenda> agendaList) {
     if (_startDate == null && _endDate == null) {
       print('ℹ️ Tidak ada filter tanggal yang diterapkan');
-      return agendaList; // No filter applied
+      return agendaList;
     }
     
-    // Mencatat jumlah agenda sebelum filter
-    final beforeCount = agendaList.length;
+    // Validasi range tanggal
+    if (!_isValidDateRange()) {
+      print('❌ Range tanggal tidak valid');
+      return []; // Return list kosong jika range tidak valid
+    }
     
-    // Normalisasi waktu
+    // Normalisasi waktu untuk perbandingan
     final normalizedStartDate = _startDate != null 
         ? DateTime(_startDate!.year, _startDate!.month, _startDate!.day) 
         : null;
@@ -240,7 +265,7 @@ class _AgendaSuratMasukState extends State<AgendaSuratMasuk> {
     }).toList();
     
     // Log hasil filter
-    print('📊 Filter tanggal: Dari $beforeCount agenda -> ${filteredList.length} agenda');
+    print('📊 Filter tanggal: Dari ${agendaList.length} agenda -> ${filteredList.length} agenda');
     
     return filteredList;
   }
@@ -251,17 +276,35 @@ class _AgendaSuratMasukState extends State<AgendaSuratMasuk> {
     print('  Dari: ${_startDateController.text}');
     print('  Sampai: ${_endDateController.text}');
     
+    // Parse input tanggal
     _startDate = _parseDateInput(_startDateController.text);
     _endDate = _parseDateInput(_endDateController.text);
     
+    // Validasi range tanggal
+    if (!_isValidDateRange()) {
+      setState(() {
+        _error = 'Tanggal awal tidak boleh lebih besar dari tanggal akhir';
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal awal tidak boleh lebih besar dari tanggal akhir'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    
     if (_startDate != null) {
-      print('✓ Tanggal mulai: ${DateFormat('dd/MM/yyyy').format(_startDate!)}');
+      print('✓ Tanggal mulai diset: ${DateFormat('dd/MM/yyyy').format(_startDate!)}');
     } else {
       print('ℹ️ Tanggal mulai tidak diatur');
     }
     
     if (_endDate != null) {
-      print('✓ Tanggal akhir: ${DateFormat('dd/MM/yyyy').format(_endDate!)}');
+      print('✓ Tanggal akhir diset: ${DateFormat('dd/MM/yyyy').format(_endDate!)}');
     } else {
       print('ℹ️ Tanggal akhir tidak diatur');
     }

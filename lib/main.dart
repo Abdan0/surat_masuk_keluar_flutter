@@ -12,7 +12,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Aplikasi Surat Masuk dan Keluar Dekanat',
+      title: 'Aplikasi Surat Masuk dan Keluar Fakultas',
       home: LoginPage(),
     );
   }

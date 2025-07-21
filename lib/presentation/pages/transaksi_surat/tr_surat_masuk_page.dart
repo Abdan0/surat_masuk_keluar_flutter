@@ -32,6 +32,7 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
 
   Future<void> _loadSuratMasuk() async {
     try {
+      if (!mounted) return;
       setState(() {
         _isLoading = true;
         _error = null;
@@ -39,11 +40,13 @@ class _TrSuratMasukPageState extends State<TrSuratMasukPage> {
 
       final suratList = await SuratService.getSuratMasuk();
       
+      if (!mounted) return;
       setState(() {
         _suratList = suratList;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;

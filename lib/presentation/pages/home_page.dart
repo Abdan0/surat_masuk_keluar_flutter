@@ -99,6 +99,7 @@ class _HomePageState extends State<HomePage> {
     final bool isAdmin = _userRole?.toLowerCase() == 'admin';
     
     return Scaffold(
+      // backgroundColor: AppPallete.backgroundColor,
       // body
       body: RefreshIndicator(
         onRefresh: () async {

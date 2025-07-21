@@ -8,6 +8,7 @@ class MyFileField extends StatelessWidget {
   final String hintText;
   final TextEditingController controller;
   final Function(PlatformFile) onFilePicked; // Mengubah tipe parameter menjadi PlatformFile
+  final String? Function(String?)? validator;
 
   const MyFileField({
     super.key,
@@ -15,6 +16,7 @@ class MyFileField extends StatelessWidget {
     required this.hintText,
     required this.controller,
     required this.onFilePicked,
+    this.validator
   });
 
   @override
@@ -22,6 +24,7 @@ class MyFileField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       readOnly: true,
+      validator: validator,
       decoration: InputDecoration(
         hintText: hintText,
         suffixIcon: IconButton(

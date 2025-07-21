@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 // Hindari penggunaan duplikat /api/
-const baseURL = 'http://192.168.1.10:8000';
+const baseURL = 'http://192.168.205.204:8000';
 const apiURL = '$baseURL/api';
 
 const String loginURL = apiURL + '/login';
@@ -52,9 +52,9 @@ InputDecoration inputDecoration(String label) {
   );
 }
 
-// Pastikan baseURL terdefinisi dengan benar
 
-// Tambahkan helper method untuk memastikan format URL yang benar
+
+// method untuk memastikan format URL yang benar
 String sanitizeUrl(String url) {
   // Menghilangkan duplikasi path /api/api
   url = url.replaceAll('/api/api/', '/api/');

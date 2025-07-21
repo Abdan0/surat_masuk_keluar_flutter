@@ -571,10 +571,17 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
         // Field Nomor Agenda
         _buildFormFieldVertical(
           label: 'Nomor Agenda',
+          isRequired: true,
           child: MyTextfield(
             controller: nomorAgendaController,
             hintText: 'Masukkan nomor agenda',
             obsecureText: false,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Nomor agenda wajib diisi';
+              }
+              return null;
+            },
           ),
         ),
 
@@ -615,10 +622,17 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
         // Field Isi
         _buildFormFieldVertical(
           label: 'Isi',
+          isRequired: true,
           child: MyTextfield(
             controller: isiSuratController,
             hintText: 'Masukkan isi ringkas surat',
             obsecureText: false,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Isi surat wajib diisi';
+              }
+              return null;
+            },
             maxLines: 3,
             height: 80,
           ),
@@ -627,10 +641,17 @@ class _TambahSuratMasukState extends State<TambahSuratMasuk> {
         // Field Lampiran
         _buildFormFieldVertical(
           label: 'Lampiran',
+          isRequired: true,
           child: MyFileField(
             label: '',
             hintText: 'Pilih file lampiran',
             controller: lampiranController,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Wajib melampirkan file';
+              }
+              return null;
+            },
             onFilePicked: (file) {
               setState(() {
                 _selectedFile = file;

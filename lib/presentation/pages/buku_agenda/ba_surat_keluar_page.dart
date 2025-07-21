@@ -175,8 +175,14 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
   // Filter agenda by date range
   List<Agenda> _filterAgendaByDateRange(List<Agenda> agendaList) {
     if (_startDate == null && _endDate == null) {
-      print('⚠️ Tidak ada filter tanggal yang diterapkan');
-      return agendaList; // No filter applied
+      print('ℹ️ Tidak ada filter tanggal yang diterapkan');
+      return agendaList;
+    }
+    
+    // Validasi range tanggal
+    if (!_isValidDateRange()) {
+      print('❌ Range tanggal tidak valid');
+      return []; // Return list kosong jika range tidak valid
     }
     
     // Log jumlah agenda sebelum filter
@@ -253,6 +259,23 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
     // Parse input tanggal
     _startDate = _parseDateInput(_startDateController.text);
     _endDate = _parseDateInput(_endDateController.text);
+    
+    // Validasi range tanggal
+    if (!_isValidDateRange()) {
+      setState(() {
+        _error = 'Tanggal awal tidak boleh lebih besar dari tanggal akhir';
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal awal tidak boleh lebih besar dari tanggal akhir'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
     
     if (_startDate != null) {
       print('✓ Tanggal mulai diset: ${DateFormat('dd/MM/yyyy').format(_startDate!)}');
@@ -354,6 +377,27 @@ class _AgendaSuratKeluarState extends State<AgendaSuratKeluar> {
       );
     }
   }
+
+  // Tambahkan method validasi range tanggal
+bool _isValidDateRange() {
+  if (_startDate != null && _endDate != null) {
+    final normalizedStartDate = DateTime(
+      _startDate!.year, 
+      _startDate!.month, 
+      _startDate!.day
+    );
+    final normalizedEndDate = DateTime(
+      _endDate!.year, 
+      _endDate!.month, 
+      _endDate!.day
+    );
+    
+    if (normalizedStartDate.isAfter(normalizedEndDate)) {
+      return false;
+    }
+  }
+  return true;
+}
 
   @override
   Widget build(BuildContext context) {
